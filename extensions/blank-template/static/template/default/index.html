@@ -1,0 +1,20 @@
+
+
+<div style="text-align: center;">
+    <p>
+        <label for='row'>行数: </label>
+        <input type='number' id='row' name='row' min='1' value="1">    
+
+        <label for='column'>列数: </label>
+        <input type='number' id='column' name='column' min='1' value="1">
+        
+        <ui-button id="sliceBtn" type="success" outline>   切图   </ui-button>
+        <ui-button id="plistBtn" type="success" outline>   生成图集   </ui-button>
+    </p>
+</div>
+
+<div id='previewImg' webkitdirectory directory>
+    <canvas id="canvas">
+        拖动图片到这里
+    </canvas>
+</div>

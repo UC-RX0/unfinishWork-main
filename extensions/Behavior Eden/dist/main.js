@@ -1,0 +1,34 @@
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.unload = exports.load = exports.methods = void 0;
+// @ts-ignore
+const package_json_1 = __importDefault(require("../package.json"));
+/**
+ * @en
+ * @zh 为扩展的主进程的注册方法
+ */
+exports.methods = {
+    async openPanel() {
+        return await Editor.Panel.openBeside("scene", package_json_1.default.name);
+    },
+    async refreshPanel() {
+        await Editor.Panel.close(package_json_1.default.name);
+        await new Promise((rs) => setTimeout(rs, 300));
+        await Editor.Panel.openBeside("scene", package_json_1.default.name);
+    },
+};
+/**
+ * @en Hooks triggered after extension loading is complete
+ * @zh 扩展加载完成后触发的钩子
+ */
+function load() { }
+exports.load = load;
+/**
+ * @en Hooks triggered after extension uninstallation is complete
+ * @zh 扩展卸载完成后触发的钩子
+ */
+function unload() { }
+exports.unload = unload;

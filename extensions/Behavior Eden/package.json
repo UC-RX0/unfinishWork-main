@@ -1,0 +1,72 @@
+{
+  "package_version": 2,
+  "version": "1.0.0",
+  "name": "behavior-eden",
+  "description": "i18n:behavior-eden.description",
+  "main": "./dist/main.js",
+  "dependencies": {},
+  "devDependencies": {
+    "@types/node": "^16.0.1",
+    "@types/fs-extra": "^9.0.5",
+    "typescript": "^4.3.4"
+  },
+  "panels": {
+    "default": {
+      "title": "behavior-eden",
+      "type": "dockable",
+      "main": "dist/panels/default",
+      "size": {
+        "min-width": 1024,
+        "min-height": 600,
+        "width": 1280,
+        "height": 720
+      }
+    }
+  },
+  "contributions": {
+    "menu": [
+      {
+        "path": "i18n:menu.panel/behavior-eden",
+        "label": "i18n:behavior-eden.open_panel",
+        "message": "open-panel"
+      }
+    ],
+    "messages": {
+      "open-panel": {
+        "methods": [
+          "openPanel"
+        ]
+      },
+      "refresh-panel": {
+        "methods": [
+          "refreshPanel"
+        ]
+      },
+      "selection:select": {
+        "methods": [
+          "default.initSelection"
+        ]
+      }
+    },
+    "inspector": {
+      "section": {
+        "node": {
+          "BehaviorEditor": "./dist/contributions/inspector/behavior-editor.js"
+        }
+      }
+    },
+    "asset-db": {
+      "mount": {
+        "path": "./src/runtime",
+        "readonly": true
+      }
+    }
+  },
+  "author": "Cocos Creator",
+  "editor": ">=3.8.0",
+  "scripts": {
+    "build": "tsc -b",
+    "watch": "tsc -w"
+  },
+  "_storeId": "7e3e0ce4dbb4d9278c7c9e91ceb520f5"
+}

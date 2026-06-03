@@ -1,0 +1,203 @@
+<div class="wrapper">
+  <div class="mask" v-if="maskText">{{maskText}}</div>
+  <div class="left">
+    <div class="scroll" ref="scroll">
+      <div id="tree" ref="tree" />
+    </div>
+    <div class="fix-left-top">
+      <div class="log">
+        <ui-section header="Logs" class="config" expand>
+          <div v-for="log of logs" :key="log.id">{{log.content}}</div>
+        </ui-section>
+      </div>
+    </div>
+    <div class="fix-right-top">
+      <div class="asset" v-if="currentAsset">
+        <ui-select :value="currentAsset.url" @change="handleSelectAsset($event.target.value)">
+          <option v-for="(asset,index) of assets" :value="asset.url" :key="asset.url">{{ asset.name }}</option>
+        </ui-select>
+      </div>
+    </div>
+    <div class="fix-left-bottom" @click="backRoot">
+      <ui-button>Root</ui-button>
+    </div>
+    <div class="fix-right-bottom" @click="backRoot">Version 1.0.2</div>
+  </div>
+
+  <div class="right">
+    <ui-tab :value="currentPanel" @change="handlePanelChange($event.target.value)">
+      <ui-button v-for="panel of panels" :key="panel">{{ panel }}</ui-button>
+    </ui-tab>
+    <div v-if="currentPanel === 0" class="node-panel">
+      <div v-for="category of nodeCategory" class="node-type">
+        <ui-section :header="category.id" :expand="category.expand">
+          <ui-button class="mt-4" v-for="item of category.items" :key="item.type" @click="addNode(item.type)"
+            >{{ item.type }}</ui-button
+          >
+        </ui-section>
+      </div>
+    </div>
+    <div v-else-if="currentPanel === 1">
+      <div v-if="currentNode">
+        <div :key="currentNode.id">
+          <ui-prop readonly>
+            <ui-label slot="label">Node ID</ui-label>
+            <ui-input slot="content" :value="currentNode.id"></ui-input>
+          </ui-prop>
+          <ui-prop>
+            <ui-label slot="label">Node Name</ui-label>
+            <ui-input
+              slot="content"
+              :value="currentNode.name"
+              @input="handleNameChange($event.target.value)"
+            ></ui-input>
+          </ui-prop>
+          <ui-prop readonly>
+            <ui-label slot="label">Node Type</ui-label>
+            <ui-input slot="content" :value="currentNode.type"></ui-input>
+          </ui-prop>
+          <ui-prop>
+            <ui-label slot="label">Abort Type</ui-label>
+            <ui-select
+              slot="content"
+              :disabled="!isComposite(currentNode)"
+              :value="currentNode.abortType"
+              @change="handleAbortTypeChange($event.target.value)"
+            >
+              <option v-for="item of abortTypeList" :value="item.value" :key="item.value">{{ item.label }}</option>
+            </ui-select>
+          </ui-prop>
+          <div class="flex flex-col">
+            <!-- onStart -->
+            <div>
+              <ui-prop>
+                <ui-label slot="label">{{onStart | toUpperCase}}</ui-label>
+              </ui-prop>
+              <ui-prop no-label>
+                <div slot="content" class="flex items-center gap-4">
+                  <ui-node
+                    class="flex-1"
+                    droppable="cc.Node"
+                    :value="currentNode.event[onStart].node"
+                    @change="handleEventNodeChange(onStart, $event.target.value)"
+                  ></ui-node>
+                  <ui-select
+                    class="flex-1"
+                    :value="currentNode.event[onStart].comp"
+                    @change="handleEventCompChange(onStart, $event.target.value)"
+                  >
+                    <option v-for="comp of lifeCycleComponents[onStart]" :value="comp.uuid" :key="comp.uuid">
+                      {{ comp.name }}
+                    </option>
+                  </ui-select>
+                  <ui-select
+                    class="flex-1"
+                    :value="currentNode.event[onStart].method"
+                    @change="handleEventMethodChange(onStart, $event.target.value)"
+                  >
+                    <option v-for="methodName of lifeCycleMethods[onStart]" :value="methodName" :key="methodName">
+                      {{ methodName }}
+                    </option>
+                  </ui-select>
+                </div>
+              </ui-prop>
+              <ui-prop no-label>
+                <ui-input
+                  slot="content"
+                  class="life-cycle-input"
+                  :value="currentNode.event[onStart].data"
+                  @input="handleEventDataChange(onStart, $event.target.value)"
+                ></ui-input>
+              </ui-prop>
+            </div>
+            <!-- onUpdate -->
+            <div>
+              <ui-prop>
+                <ui-label slot="label">{{onUpdate | toUpperCase}}</ui-label>
+              </ui-prop>
+              <ui-prop no-label>
+                <div slot="content" class="flex items-center gap-4">
+                  <ui-node
+                    class="flex-1"
+                    droppable="cc.Node"
+                    :value="currentNode.event[onUpdate].node"
+                    @change="handleEventNodeChange(onUpdate, $event.target.value)"
+                  ></ui-node>
+                  <ui-select
+                    class="flex-1"
+                    :value="currentNode.event[onUpdate].comp"
+                    @change="handleEventCompChange(onUpdate, $event.target.value)"
+                  >
+                    <option v-for="comp of lifeCycleComponents[onUpdate]" :value="comp.uuid" :key="comp.uuid">
+                      {{ comp.name }}
+                    </option>
+                  </ui-select>
+                  <ui-select
+                    class="flex-1"
+                    :value="currentNode.event[onUpdate].method"
+                    @change="handleEventMethodChange(onUpdate, $event.target.value)"
+                  >
+                    <option v-for="methodName of lifeCycleMethods[onUpdate]" :value="methodName" :key="methodName">
+                      {{ methodName }}
+                    </option>
+                  </ui-select>
+                </div>
+              </ui-prop>
+              <ui-prop no-label>
+                <ui-input
+                  slot="content"
+                  class="life-cycle-input"
+                  :value="currentNode.event[onUpdate].data"
+                  @input="handleEventDataChange(onUpdate, $event.target.value)"
+                ></ui-input>
+              </ui-prop>
+            </div>
+            <!-- onEnd -->
+            <div>
+              <ui-prop>
+                <ui-label slot="label">{{onEnd | toUpperCase}}</ui-label>
+              </ui-prop>
+              <ui-prop no-label>
+                <div slot="content" class="flex items-center gap-4">
+                  <ui-node
+                    class="flex-1"
+                    droppable="cc.Node"
+                    :value="currentNode.event[onEnd].node"
+                    @change="handleEventNodeChange(onEnd, $event.target.value)"
+                  ></ui-node>
+                  <ui-select
+                    class="flex-1"
+                    :value="currentNode.event[onEnd].comp"
+                    @change="handleEventCompChange(onEnd, $event.target.value)"
+                  >
+                    <option v-for="comp of lifeCycleComponents[onEnd]" :value="comp.uuid" :key="comp.uuid">
+                      {{ comp.name }}
+                    </option>
+                  </ui-select>
+                  <ui-select
+                    class="flex-1"
+                    :value="currentNode.event[onEnd].method"
+                    @change="handleEventMethodChange(onEnd, $event.target.value)"
+                  >
+                    <option v-for="methodName of lifeCycleMethods[onEnd]" :value="methodName" :key="methodName">
+                      {{ methodName }}
+                    </option>
+                  </ui-select>
+                </div>
+              </ui-prop>
+              <ui-prop no-label>
+                <ui-input
+                  slot="content"
+                  class="life-cycle-input"
+                  :value="currentNode.event[onEnd].data"
+                  @input="handleEventDataChange(onEnd, $event.target.value)"
+                ></ui-input>
+              </ui-prop>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div v-else class="flex justify-center mt-12">Please select a node</div>
+    </div>
+  </div>
+</div>

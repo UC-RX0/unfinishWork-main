@@ -1,0 +1,56 @@
+{
+    "$schema": "./@types/schema/package/index.json",
+    "package_version": 2,
+    "name": "split-image",
+    "version": "1.0.0",
+    "author": "shangdibaozi",
+    "editor": ">=3.8.3",
+    "scripts": {
+        "preinstall": "node ./scripts/preinstall.js",
+        "build": "tsc"
+    },
+    "description": "i18n:split-image.description",
+    "main": "./dist/main.js",
+    "dependencies": {
+        "fs-extra": "^10.0.0"
+    },
+    "devDependencies": {
+        "@cocos/creator-types": "^3.8.3",
+        "@types/fs-extra": "^9.0.5",
+        "@types/node": "^18.17.1"
+    },
+    "panels": {
+        "default": {
+            "title": "split-image",
+            "type": "dockable",
+            "main": "dist/panels/default",
+            "size": {
+                "min-width": 1024,
+                "min-height": 640,
+                "width": 1024,
+                "height": 640
+            }
+        }
+    },
+    "contributions": {
+        "menu": [
+            {
+                "path": "Extension",
+                "label": "i18n:split-image",
+                "message": "open-panel"
+            }
+        ],
+        "messages": {
+            "open-panel": {
+                "methods": [
+                    "openPanel"
+                ]
+            },
+            "drop-asset": {
+              "methods": [
+                "default.dropAsset"
+              ]
+            }
+        }
+    }
+}

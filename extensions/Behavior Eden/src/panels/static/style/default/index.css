@@ -1,0 +1,180 @@
+.wrapper {
+  display: flex;
+  background-color: #2b2b2b;
+  width: 100%;
+  height: 100%;
+  font-size: 12px;
+  color: #cccccc;
+  font-family: BlinkMacSystemFont, "PingFang SC", system-ui, -apple-system, Helvetica Neue, Helvetica, sans-serif;
+}
+
+ui-prop:not([no-label]) {
+  padding: 4px 4px 0 4px;
+}
+
+ui-prop[no-label] {
+  padding: 0px 4px 0 4px;
+}
+
+.node-type {
+  padding-right: 8px;
+}
+
+.life-cycle-input {
+  margin-top: 4px;
+}
+
+.right {
+  width: 260px;
+  border-left: 2px solid #050505;
+  flex-shrink: 0;
+}
+
+.right > div {
+  padding-right: 2px;
+}
+
+.node-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.left {
+  position: relative;
+  width: calc(100% - 260px);
+  display: flex;
+}
+
+.scroll {
+  overflow: auto;
+}
+
+.fix-left-top {
+  position: absolute;
+  left: 14px;
+  top: 14px;
+  z-index: 1;
+  display: flex;
+}
+
+.fix-right-top {
+  position: absolute;
+  right: 20px;
+  top: 14px;
+  z-index: 1;
+  display: flex;
+}
+
+.fix-left-bottom {
+  position: absolute;
+  left: 14px;
+  bottom: 24px;
+  z-index: 1;
+}
+
+.fix-right-bottom {
+  position: absolute;
+  right: 20px;
+  bottom: 24px;
+  z-index: 1;
+}
+
+.fix-bottom ui-button {
+  padding: 0 12px;
+}
+
+.asset {
+}
+
+.log {
+  color: #e8b116;
+  min-width: 200px;
+  max-width: 500px;
+  /* font-weight: bold; */
+}
+
+.log div {
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.log div:first-child {
+  padding-top: 8px;
+}
+
+.flex {
+  display: flex;
+}
+
+.flex-col {
+  flex-direction: column;
+}
+
+.gap-6 {
+  gap: 6px;
+}
+.gap-4 {
+  gap: 4px;
+}
+.gap-2 {
+  gap: 2px;
+}
+
+.justify-center {
+  justify-content: center;
+}
+
+.items-center {
+  align-items: center;
+}
+
+.w-3333 {
+  width: 33.333333%;
+}
+
+.w-100 {
+  width: 100%;
+}
+
+.mt-4 {
+  margin-top: 4px;
+}
+
+.mt-12 {
+  margin-top: 12px;
+}
+
+.mr-4 {
+  margin-right: 4px;
+}
+
+.mr-6 {
+  margin-right: 6px;
+}
+
+.mr-8 {
+  margin-right: 8px;
+}
+
+.grow {
+  flex-grow: 1;
+}
+
+.flex-1 {
+  flex: 1 1 0%;
+}
+
+.mask {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  top: 0;
+  z-index: 999;
+  background-color: rgba(2, 2, 2, 0.6);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
