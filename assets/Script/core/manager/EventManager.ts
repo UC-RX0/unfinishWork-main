@@ -27,25 +27,23 @@ class EventManager {
     }
 
     off(eventName: string, fun: Function, ctx: unknown) {
-        if (!this.eventMap.has(eventName)) {
+        const item = this.eventMap.get(eventName);
+        if (!item) {
             console.log(eventName + "事件不存在")
             return
         }
-        const item = this.eventMap?.get(eventName);
-        item?.splice(item.indexOf({ fun, ctx }), 1);
+        const eventIndex = item.findIndex((event) => event.fun === fun && event.ctx === ctx);
+        if (eventIndex !== -1) {
+            item.splice(eventIndex, 1);
+        }
     }
-
     offWith(ctx?: unknown) {
         if (!ctx) {
             console.log("ctx不能为空")
             return
         }
-        this.eventMap.forEach((eventList) => {
-            eventList.forEach((event) => {
-                if (event.ctx == ctx) {
-                    eventList.splice(eventList.indexOf(event), 1);
-                }
-            });
+        this.eventMap.forEach((eventList, key) => {
+            this.eventMap.set(key, eventList.filter(event => event.ctx !== ctx));
         });
     }
     emit(eventName: string, ...args: any[]) {

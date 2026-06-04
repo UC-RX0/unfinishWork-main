@@ -1,14 +1,107 @@
-import { _decorator, Component, Node } from 'cc';
-const { ccclass, property } = _decorator;
-
-@ccclass('UIManager')
-export class UIManager extends Component {
-    start() {
-
+import { _decorator, Asset, Component, director, find, instantiate, Node, Prefab, Vec3, Widget } from 'cc';
+import { resMgr } from './ResManager';
+export enum LayerEnum {
+    /**主视图层级*/
+    MainLayer = 1,
+    /**游戏层级*/
+    GameLayer,
+    /**弹窗层级*/
+    PopupLayer,
+    /**提示层级*/
+    GuideLayer,
+    /**锁层级*/
+    LockLayer,
+}
+/**
+ * @description UI管理器
+ * 本质上属于Prefab管理器 + 层级管理器 作为 UI展示的Pipeline
+ * 他需要完成一套标准化的流程 做到UI的加载、显示、隐藏、销毁等操作
+ * 本质是向场景中添加节点 并设置节点的父节点为UI节点的子节点
+ * 并设置节点的层级为UI节点的层级 + 1
+ * 并设置节点的组件为UI组件
+*/
+class UIManager {
+    private constructor() { }
+    private static _instance: UIManager = null;
+    public static get instance(): UIManager {
+        if (this._instance == null) {
+            this._instance = new UIManager();
+        }
+        return this._instance;
     }
-
-    update(deltaTime: number) {
-        
+    private layerMap: Map<LayerEnum, Node> = new Map();
+    private uiMap: Map<UIEnum, Node> = new Map();
+    /**初始化UI管理器
+     * 初始化各个层级的节点 并设置层级为UI节点的层级 + 1
+    */
+    init() {
+        let canvas = find("Canvas");
+        if (!canvas) {
+            console.error("Canvas节点不存在");
+            return;
+        }
+        for (let layer of Object.keys(LayerEnum).filter(key => isNaN(Number(key)))) {
+            let node = new Node(layer);
+            let widget = node.addComponent(Widget);
+            widget.isAlignBottom = widget.isAlignTop = widget.isAlignLeft = widget.isAlignRight = true;
+            widget.top = widget.left = widget.right = widget.bottom = 0;
+            node.parent = canvas;
+            node.setPosition(Vec3.ZERO);
+            this.layerMap.set(LayerEnum[layer], node);
+            widget.updateAlignment();
+        }
+        // console.log("初始化层级节点", this.layerMap);
+        new UIHelper().init();
+    }
+    /**注册UI节点并向节点池中添加节点*/
+    async register(path: string, ui: UIEnum, layer: LayerEnum, type?: new (...args: any[]) => Asset) {
+        let node = this.layerMap.get(layer);
+        if (!node) {
+            console.error(`层${layer}节点不存在`);
+            return;
+        }
+        // 加载Prefab资源
+        let prefab = await resMgr.getAssetByName(path, ui) as Prefab;
+        if (!prefab) {
+            console.error(`资源${path}不存在`);
+            return;
+        }
+        let uiNode = instantiate(prefab);
+        this.uiMap.set(ui, uiNode);
+        // resMgr.putNodeToPool(uiNode, path, ui);
+    }
+    /**显示UI节点*/
+    showUI(ui: UIEnum, layer: LayerEnum, key: string, ...params: any[]) {
+        let node = this.uiMap.get(ui);
+        if (!node) return;
+        node.parent = this.layerMap.get(layer);
+        node.setPosition(Vec3.ZERO);
+    }
+    closeUI(ui: UIEnum, cb?: Function) {
+        let node = this.uiMap.get(ui);
+        if (!node) return;
+        node.parent = null;
+        node.setPosition(Vec3.ZERO);
+        if (cb) cb();
     }
 }
-
+export enum PathEnum {
+    /**角色UI*/
+    Actor = "Prefab/Actor",
+}
+/**
+ * 用于加载Prefab资源
+*/
+export enum UIEnum {
+    /**角色UI*/
+    Actor = "Actor",
+}
+class UIHelper {
+    /**加载UI节点*/
+    init() {
+        uiMgr.register(PathEnum.Actor, UIEnum.Actor, LayerEnum.GameLayer, Prefab);
+    }
+}
+export const uiMgr = UIManager.instance;
+
+
