@@ -214,7 +214,6 @@ class ResManager {
         }
         return result.length == 1 ? result[0] : result;
     }
-
     //按照类型获取资源
     async getAssetByType(key: string, type: typeof Asset, name?: string, bundle?: string) {
         let res: IRes[] = this.loadedResMap.get(key);
@@ -269,9 +268,9 @@ class ResManager {
         let node = instantiate(prefab);
         return node;
     }
-    public async putNodeToPool(node: Node, key: string, name: string) {
+    public async putNodeToPool(node: Node, name: string, key?: string) {
         if (!node) return;
-        let url =  name;
+        let url = name;
         let pool = this.getPool(url);
         if (pool) {
             node.parent = null;

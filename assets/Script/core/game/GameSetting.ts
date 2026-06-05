@@ -15,7 +15,10 @@ class GameSetting {
     }
     /**是否远程加载资源 0：本地加载1：远程加载*/
     isRemote: number = 0;
-
+    /**帧率*/
+    frameRate: number = 60;
+    /**时间步长*/
+    DT: number = 1 / this.frameRate;
 
 
 }
