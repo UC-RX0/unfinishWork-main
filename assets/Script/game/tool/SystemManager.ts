@@ -33,4 +33,7 @@ export class SystemManager {
         this.systems.sort((a, b) => a.priority - b.priority);
         this.needsSort = false;
     }
+    getSystem(cls: new (...args: any[]) => ISystem): ISystem | undefined {
+        return this.systems.find((system) => system.constructor === cls);
+    }
 }

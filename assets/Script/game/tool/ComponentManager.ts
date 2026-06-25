@@ -1,11 +1,16 @@
+import { Component } from 'cc';
 import { __private } from 'cc';
 import { IComponent } from "../Base/IComponent";
 import { BitSet } from "./BitSet";
 import { ComponentArray } from "./ComponentArray";
+//组件类
 export type ComponentClass<T extends IComponent> = new () => T;
 export class ComponentManager {
+    /**组件数组映射表*/
     private componentArrays: Map<ComponentClass<any>, ComponentArray<IComponent>> = new Map();
+    /**组件类到位索引的映射表*/
     private componentBitIndices: Map<ComponentClass<any>, number> = new Map();
+    /**实体id到位组件位的映射表*/
     private entitySignature: Map<number, BitSet> = new Map();
 
     private nextBitIndex: number = 0;
@@ -58,6 +63,31 @@ export class ComponentManager {
         let componentData = componentArray.getData(entityId);
         return componentData as T;
     }
+    //批量获取组件数据
+    query(...componentClasses: ComponentClass<any>[]): number[] {
+        let result: number[] = [];
+        let requiredBits: number[] = [];
+        for (let component of componentClasses) {
+            let bit = this.componentBitIndices.get(component);
+            if (bit === undefined) {
+                return [];
+            }
+            requiredBits.push(bit);
+        }
+        for (let [entityId, signature] of this.entitySignature) {
+            let match = true;
+            for (let bit of requiredBits) {
+                if (!signature.has(bit)) {
+                    match = false;
+                    break;
+                }
+            }
+            if (match) {
+                result.push(entityId);
+            }
+        }
+        return result;
+    }
     //这是检索ComponentArrary的复合方法
     hasComponent<T extends IComponent>(entityId: number, component: ComponentClass<T>): boolean {
         let componentArray = this.componentArrays.get(component);
@@ -72,6 +102,5 @@ export class ComponentManager {
             componentArray.removeData(entityId);
         }
         this.entitySignature.delete(entityId);
-
     }
 }

@@ -1,3 +1,8 @@
+
+
+/**位集类
+ * 用于存储布尔值的位集，每个位表示一个布尔值。
+*/
 export class BitSet {
     private words: Uint32Array;
     constructor(size: number = 64) {
