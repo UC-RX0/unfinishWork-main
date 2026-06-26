@@ -7,6 +7,7 @@ export class SystemManager {
 
     registerSystem(system: ISystem, priority: number) {
         system.priority = priority;
+        system.init();
         this.systems.push(system);
         if (this.systems.length > 1) this.needsSort = true;
         this.sortSystems();

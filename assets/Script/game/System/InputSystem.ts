@@ -6,20 +6,17 @@ import { Blackboard } from "../tool/Board";
 import { inputMgr } from "../../core/manager/InputManager";
 
 export class InputSystem extends ISystem {
-
     requiredComponents: ComponentClass<any>[] = [PlayerInputComponent, VelocityComponent];
 
     init() {
         //初始化系统
         this.enable = true;
-        this.priority = 0;
     }
 
 
     update(dt: number): void {
         //拿到所有玩家的ID
         const entityID = this.world.query(PlayerInputComponent, VelocityComponent);
-
         //根据输入状态更新速度
         for (const id of entityID) {
             const { playerIndex } = this.world.getComp(id, PlayerInputComponent);

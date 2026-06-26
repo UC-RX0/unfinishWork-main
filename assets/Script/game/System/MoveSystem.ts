@@ -2,9 +2,10 @@
 import { ISystem } from "../Base/ISystem";
 import { PosComponent, VelocityComponent } from "../Component";
 import { ComponentClass } from "../tool/ComponentManager";
-
+//  移动系统
+//  优先值低于InputSystem
+//  需要输入系统完成后再执行操作
 export class MoveSystem extends ISystem {
-    // requiredComponents: ComponentClass<any>[] = [PosComponent, VelocityComponent];
     requiredComponents: ComponentClass<any>[] = [PosComponent, VelocityComponent];
     //会在初始化的时候去查询所有需要的组件类
     //或者看World 是否会带有数据注入的方法
@@ -12,7 +13,6 @@ export class MoveSystem extends ISystem {
     init() {
         //初始化系统
         this.enable = true;
-        this.priority = 100;
     }
     //开启或关闭系统
 

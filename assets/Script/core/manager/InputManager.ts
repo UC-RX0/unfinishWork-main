@@ -18,7 +18,7 @@ class InputManager {
         this.inputMap.set(id, { direction, speed });
     }
     public getInput(playerIndex: number) {
-        return this.inputMap.get(playerIndex);
+        return this.inputMap.get(playerIndex) || undefined;
     }
     public removeInput(id: number) {
         this.inputMap.delete(id);
