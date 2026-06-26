@@ -1,5 +1,6 @@
 
 import { _decorator, Component, Event, EventTouch, Input, input, Node, UITransform, v2, v3, Vec3 } from 'cc';
+import { inputMgr } from '../core/manager/InputManager';
 const { ccclass, property } = _decorator;
 
 @ccclass('JoyStickManager')
@@ -14,6 +15,7 @@ export class JoyStickManager extends Component {
     private isFix = false;
     private defaultPos: Vec3 = null;
     private maxRadius: number = 0;
+    private belogId: number = 0;
     onLoad() {
         input.on(Input.EventType.TOUCH_START, this.onTouchStart, this);
         input.on(Input.EventType.TOUCH_MOVE, this.onTouchMove, this);
@@ -36,9 +38,10 @@ export class JoyStickManager extends Component {
         let realPos = this.getRealPos(event);
         let offset = realPos.subtract(this.background.position);
         if (offset.length() > this.maxRadius) {
-            offset.normalize();
+            offset = offset.normalize();
             offset.multiplyScalar(this.maxRadius);
         }
+
         this.Point.setPosition(offset);
 
 
