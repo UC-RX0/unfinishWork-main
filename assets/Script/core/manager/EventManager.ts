@@ -61,7 +61,5 @@ class EventManager {
         this.eventMap.clear();
     }
 }
-
-
 export const eventMgr = EventManager.instance;
 

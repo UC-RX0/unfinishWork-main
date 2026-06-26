@@ -13,4 +13,8 @@ export abstract class ISystem {
     abstract requiredComponents: ComponentClass<any>[];
     /**执行操作， 每帧需要执行的逻辑*/
     abstract update(dt: number): void;
+    //开启或关闭系统
+    public enableOrDisable(enable: boolean): void {
+        this.enable = enable;
+    }
 }

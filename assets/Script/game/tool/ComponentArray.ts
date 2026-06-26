@@ -3,7 +3,7 @@ import { IComponent } from "../Base/IComponent";
 export class ComponentArray<T extends IComponent> {
     // public components: IComponent[] = [];
     public data: Map<number, T> = new Map();
-    //添加组件的number表示是位掩码
+    //添加组件的number表示是实体的ID 说明实体是否有这个组件
     addData(id: number, component: T) {
         this.data.set(id, component);
     }

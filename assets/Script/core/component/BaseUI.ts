@@ -3,18 +3,7 @@ const { ccclass, property } = _decorator;
 
 @ccclass('BaseUI')
 export class BaseUI extends Component {
-
-
-
-
-
-
-
-
-
-
-
-    
+   
 }
 
 

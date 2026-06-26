@@ -12,7 +12,6 @@ export class ComponentManager {
     private componentBitIndices: Map<ComponentClass<any>, number> = new Map();
     /**实体id到位组件位的映射表*/
     private entitySignature: Map<number, BitSet> = new Map();
-
     private nextBitIndex: number = 0;
     registerComponent(cls: ComponentClass<any>, bit?: number) {
         if (bit === undefined) {
@@ -28,8 +27,14 @@ export class ComponentManager {
             this.registerComponent(cls);
         }
         let componentArray = this.componentArrays.get(cls);
+        //每个实体添加的时候都是只往里添加组件类型 并非实例 所以需要New一个组件实例
         let component = new cls();
+        //仅放相同的组件类型和实体ID
         componentArray.addData(entityId, component);
+        /**
+         * componentBitIndices 使用位索引记录是否有这个组件类型（由registerComponent方法注册时注入的位索引）
+         * entitySignature 使用实体Id与位索引做映射记录实体是否有这个组件类型
+        */
         let bit = this.componentBitIndices.get(cls);
         if (bit !== undefined) {
             let signature = this.entitySignature.get(entityId);
@@ -42,9 +47,7 @@ export class ComponentManager {
     }
     removeComponent<T extends IComponent>(entityId: number, component: ComponentClass<T>) {
         let componentArray = this.componentArrays.get(component);
-        if (!componentArray) {
-            return;
-        }
+        if (!componentArray) return;
         componentArray.removeData(entityId);
         let bit = this.componentBitIndices.get(component);
         if (bit !== undefined) {

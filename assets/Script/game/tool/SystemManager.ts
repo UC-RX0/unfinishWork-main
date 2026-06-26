@@ -16,6 +16,13 @@ export class SystemManager {
         if (this.systems.length > 1) this.needsSort = true;
         this.sortSystems();
     }
+    //开启或关闭系统
+    enableOrDisable(cls: new (...args: any[]) => ISystem, enable: boolean) {
+        let system = this.getSystem(cls);
+        if (system) {
+            system.enableOrDisable(enable);
+        }
+    }
     update(dt: number) {
         this.sortSystems();
         //执行系统

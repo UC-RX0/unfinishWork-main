@@ -121,6 +121,10 @@ export class World extends Component implements IWorld {
     getSystem(cls: new (...args: any[]) => ISystem): ISystem | undefined {
         return this.systemManager.getSystem(cls);
     }
+    //开启或关闭系统
+    enableOrDisable(cls: new (...args: any[]) => ISystem, enable: boolean): void {
+        this.systemManager.enableOrDisable(cls, enable);
+    }
     //#endregion
     //#region 接口API
     /**
@@ -139,8 +143,8 @@ export class World extends Component implements IWorld {
      * @param componentClass 组件类
      * @returns 实体的指定组件
     */
-    getComp<T extends IComponent>(entity: number, componentClass: ComponentClass<T>): T | undefined {
-        return this.componentManager.getComponent(entity, componentClass);
+    getComp<T extends IComponent>(entityId: number, componentClass: ComponentClass<T>): T | undefined {
+        return this.componentManager.getComponent(entityId, componentClass);
     }
     //#endregion
 }
