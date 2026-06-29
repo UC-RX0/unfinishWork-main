@@ -1,8 +1,4 @@
 import { Vec2 } from "cc";
-
-
-
-
 class InputManager {
     private constructor() { }
     private static _instance: InputManager = null;
@@ -12,7 +8,6 @@ class InputManager {
         }
         return this._instance;
     }
-
     private inputMap: Map<number, { direction: Vec2, speed: number }> = new Map();
     public setInput(id: number, direction: Vec2, speed: number) {
         this.inputMap.set(id, { direction, speed });
@@ -24,5 +19,4 @@ class InputManager {
         this.inputMap.delete(id);
     }
 }
-
 export const inputMgr = InputManager.instance;

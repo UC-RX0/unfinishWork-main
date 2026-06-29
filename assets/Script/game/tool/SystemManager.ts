@@ -44,4 +44,9 @@ export class SystemManager {
     getSystem(cls: new (...args: any[]) => ISystem): ISystem | undefined {
         return this.systems.find((system) => system.constructor === cls);
     }
+    clean() {
+
+        this.systems = [];
+        this.needsSort = false;
+    }
 }

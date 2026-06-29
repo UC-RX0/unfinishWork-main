@@ -31,6 +31,10 @@ class UIManager {
     }
     private layerMap: Map<LayerEnum, Node> = new Map();
     private uiMap: Map<UIEnum, Node> = new Map();
+    private isInit: boolean = false;
+
+
+
     /**初始化UI管理器
      * 初始化各个层级的节点 并设置层级为UI节点的层级 + 1
     */
@@ -52,9 +56,17 @@ class UIManager {
         }
         // console.log("初始化层级节点", this.layerMap);
         new UIHelper().init();
+        this.isInit = true;
     }
-    /**注册UI节点并向节点池中添加节点*/
+
+    /**
+     * @description 注册UI节点并向节点池中添加节点
+     * 要新增一个回响时间 防止在初始化前调用注册方法
+     * */
     async register(path: string, ui: UIEnum, layer: LayerEnum, type?: new (...args: any[]) => Asset) {
+        if (!this.isInit) {
+            return
+        }
         let node = this.layerMap.get(layer);
         if (!node) {
             console.error(`层${layer}节点不存在`);
@@ -68,21 +80,61 @@ class UIManager {
         }
         let uiNode = instantiate(prefab);
         this.uiMap.set(ui, uiNode);
+        console.log(`注册成功`, this.uiMap);
         // resMgr.putNodeToPool(uiNode, path, ui);
+
     }
     /**显示UI节点*/
-    showUI(ui: UIEnum, layer: LayerEnum, key: string, ...params: any[]) {
+    async showUI(ui: UIEnum, layer: LayerEnum, key?: string, ...params: any[]) {
+        if (!this.isInit) {
+            return
+        }
         let node = this.uiMap.get(ui);
-        if (!node) return;
-        node.parent = this.layerMap.get(layer);
+        if (!node) {
+            console.error(`UI节点${ui}不存在`);
+            return;
+        }
+        let parentNode = this.getLayer(layer);
+        if (!parentNode) {
+            console.error(`层${layer}节点不存在`);
+            return;
+        }
+        node.parent = parentNode;
+        console.log(`显示UI节点${ui}层级${layer}父节点${parentNode}`);
         node.setPosition(Vec3.ZERO);
     }
     closeUI(ui: UIEnum, cb?: Function) {
+        if (!this.isInit) {
+            return
+        }
         let node = this.uiMap.get(ui);
         if (!node) return;
         node.parent = null;
         node.setPosition(Vec3.ZERO);
         if (cb) cb();
+    }
+    getUI(ui: UIEnum): Node | null {
+        if (!this.isInit) {
+            console.error("UI管理器未初始化");
+            return null;
+        }
+
+        if (!this.uiMap.has(ui)) {
+            console.error(`UI节点${ui}不存在`);
+            return null;
+        }
+        return this.uiMap.get(ui);
+    }
+    getLayer(layer: LayerEnum): Node | null {
+        if (!this.isInit) {
+            console.error("UI管理器未初始化");
+            return null;
+        }
+        if (!this.layerMap.has(layer)) {
+            console.error(`层${layer}节点不存在`);
+            return null;
+        }
+        return this.layerMap.get(layer);
     }
 }
 export enum PathEnum {

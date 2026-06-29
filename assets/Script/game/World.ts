@@ -7,29 +7,42 @@ import { gameParam } from '../core/game/GameSetting';
 import { ISystem } from './Base/ISystem';
 import { ComponentClass } from './tool/ComponentManager';
 import { IComponent } from './Base/IComponent';
+import { PlayerInputComponent, PosComponent, VelocityComponent, ViewComponent } from './Component';
+import { FaceDirectionSystem, InputSystem, MoveSystem, PosSynSystem } from './System';
+
 /**
  *@description 世界类
  * 作为ECS框架的核心 需要统管所有System
  * 核心职责是 负责EC的CRUD操作
  * 并调度所有System的执行
  **/
-export class World extends Component implements IWorld {
-
+class World implements IWorld {
     private entityPool: EntityPool;
     private componentManager: ComponentManager;
     private systemManager: SystemManager;
     private lastUpdateTime: number = 0;
+    private static _instance: World = null;
+    private constructor() { }
+    /**获取单实例 */
+    public static get instance(): World {
+        if (!this._instance) {
+            this._instance = new World();
+        }
+        return this._instance;
+    }
 
-    onLoad() {
+    init() {
         this.entityPool = new EntityPool();
         this.componentManager = new ComponentManager();
         this.systemManager = new SystemManager();
         // this.systemManager.init();
+        this.addBase()
     }
     onDestroy() {
         this.entityPool = null;
         this.componentManager = null;
         this.systemManager = null;
+        // this.offAllBase();
     }
     update(dt: number) {
         //统一时间步长为帧率 可由GameSetting配置
@@ -38,6 +51,27 @@ export class World extends Component implements IWorld {
             this.lastUpdateTime -= gameParam.DT;
             this.systemManager.update(gameParam.DT);
         }
+    }
+    /**
+     * @description 添加组件 
+     * 用于在系统中使用组件。
+     * @param componentClass 组件类
+     * 
+    */
+    addBase() {
+        this.registerComponent(PosComponent);
+        this.registerComponent(VelocityComponent);
+        this.registerComponent(PlayerInputComponent);
+        this.registerComponent(ViewComponent);
+        this.registerSystem(new InputSystem(), 0);
+        this.registerSystem(new MoveSystem(), 100);
+        this.registerSystem(new PosSynSystem(), 200);
+        this.registerSystem(new FaceDirectionSystem(), 201);
+    }
+
+    offAllBase() {
+        this.componentManager.clean();
+        this.systemManager.clean();
     }
     //#region 实体API
     /**创建实体
@@ -83,8 +117,8 @@ export class World extends Component implements IWorld {
      * @param entityId 实体ID
      * @param componentClass 组件类
     */
-    addComp(entityId: number, componentClass: new (...args: any[]) => any): void {
-        this.componentManager.addComponent(entityId, componentClass);
+    addComp(entityId: number, componentClass: new (...args: any[]) => any): any {
+        return this.componentManager.addComponent(entityId, componentClass);
     }
     /**
      * @description 从实体中移除组件
@@ -144,9 +178,9 @@ export class World extends Component implements IWorld {
      * @returns 实体的指定组件
     */
     getComp<T extends IComponent>(entityId: number, componentClass: ComponentClass<T>): T | undefined {
-        return this.componentManager.getComponent(entityId, componentClass);
+        return this.componentManager.getComp(entityId, componentClass);
     }
     //#endregion
 }
-
+export const world = World.instance;
 

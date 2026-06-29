@@ -1,6 +1,6 @@
 import { Asset, assetManager, AssetManager, instantiate, JsonAsset, Node, Prefab, resources, sp, Sprite, SpriteFrame } from "cc";
 import { gameParam } from "../game/GameSetting";
-import { LayerEnum } from "./UIManager";
+
 
 interface IRes {
     name: string;

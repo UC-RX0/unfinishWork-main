@@ -21,7 +21,7 @@ export class ComponentManager {
         this.componentArrays.set(cls, componentArray);
         this.componentBitIndices.set(cls, bit);
     }
-    addComponent<T extends IComponent>(entityId: number, cls: ComponentClass<T>) {
+    addComponent<T extends IComponent>(entityId: number, cls: ComponentClass<T>): IComponent {
         if (!this.componentArrays.has(cls)) {
             //意味着这个组件没有被注册过,需要先注册
             this.registerComponent(cls);
@@ -44,6 +44,7 @@ export class ComponentManager {
             }
             signature.set(bit);
         }
+        return component;
     }
     removeComponent<T extends IComponent>(entityId: number, component: ComponentClass<T>) {
         let componentArray = this.componentArrays.get(component);
@@ -58,7 +59,7 @@ export class ComponentManager {
         }
     }
     //这是检索ComponentArrary的复合方法
-    getComponent<T extends IComponent>(entityId: number, component: ComponentClass<T>): T | undefined {
+    getComp<T extends IComponent>(entityId: number, component: ComponentClass<T>): T | undefined {
         let componentArray = this.componentArrays.get(component);
         if (!componentArray) {
             return;
@@ -106,4 +107,12 @@ export class ComponentManager {
         }
         this.entitySignature.delete(entityId);
     }
+    clean() {
+        this.componentArrays.clear();
+        this.componentBitIndices.clear();
+        this.entitySignature.clear();
+        this.nextBitIndex = 0;
+    }
+
+
 }
