@@ -21,7 +21,7 @@ export class GameLaunch extends Component {
     }
     async init() {
         world.init();
-        let { id, generation } = world.createEntity();
+        let { id } = world.createEntity();
         world.addComp(id, PlayerInputComponent).playerIndex = 0;
         world.addComp(id, VelocityComponent).speed = 100;
         world.addComp(id, PosComponent)
