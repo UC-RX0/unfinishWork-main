@@ -4,7 +4,6 @@ interface IEvent {
     ctx: unknown;
 }
 class EventManager {
-
     private constructor() { }
     private static _instance: EventManager = null;
     public static get instance(): EventManager {
@@ -25,7 +24,6 @@ class EventManager {
         }
         console.log(eventName + "事件添加成功")
     }
-
     off(eventName: string, fun: Function, ctx: unknown) {
         const item = this.eventMap.get(eventName);
         if (!item) {

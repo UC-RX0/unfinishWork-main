@@ -7,8 +7,8 @@ import { gameParam } from '../core/game/GameSetting';
 import { ISystem } from './Base/ISystem';
 import { ComponentClass } from './tool/ComponentManager';
 import { IComponent } from './Base/IComponent';
-import { PlayerInputComponent, PosComponent, VelocityComponent, ViewComponent } from './Component';
-import { FaceDirectionSystem, InputSystem, MoveSystem, PosSynSystem } from './System';
+import { AnimComponent, PlayerInputComponent, PosComponent, VelocityComponent, ViewComponent } from './Component';
+import { AnimSyncSystem, FaceDirectionSystem, InputSystem, MoveSystem, PosSynSystem } from './System';
 
 /**
  *@description 世界类
@@ -63,8 +63,10 @@ class World implements IWorld {
         this.registerComponent(VelocityComponent);
         this.registerComponent(PlayerInputComponent);
         this.registerComponent(ViewComponent);
+        this.registerComponent(AnimComponent);
         this.registerSystem(new InputSystem(), 0);
         this.registerSystem(new MoveSystem(), 100);
+        this.registerSystem(new AnimSyncSystem(), 150);
         this.registerSystem(new PosSynSystem(), 200);
         this.registerSystem(new FaceDirectionSystem(), 201);
     }

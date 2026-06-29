@@ -242,10 +242,13 @@ class ResManager {
     */
     async getAssetByPath(key: string, name?: string, bundle?: string, type?: typeof Asset) {
         let res: IRes[] = this.loadedResMap.get(key);
+        console.log("当前资源加载情况为-------2", res);
         if (!res) {
+            console.log("程序进行到此")
             res = await this.Asset2Load(key, name, type, bundle);
         }
         let result: Asset[] = [];
+        console.log("当前资源加载情况为", res);
         if (res.length > 0) {
             result = res.map((item) => item.data);
         } else {
@@ -289,9 +292,15 @@ class ResManager {
     //#endregion 
     //#region 获取特定资源
     public async setSprite(sp: Sprite, key: string, name: string) {
-        if (!sp) return;
+        if (!sp) {
+            console.log("sp 为空--->ResManager.setSprite");
+            return;
+        }
         let spriteFrame = await this.getAssetByName(key, name) as SpriteFrame;
-        if (!spriteFrame) return;
+        if (!spriteFrame) {
+            console.log("资源不存在--->ResManager.setSprite", key, name);
+            return;
+        }
         sp.spriteFrame = spriteFrame;
     }
     public async setSkeleton(spine: sp.Skeleton, key: string, name: string) {
@@ -331,14 +340,30 @@ class ResManager {
         // this.resMap.set(key, item);
     }
     //待研究一下 是否能承担作用
+    /**
+     * @description 加载资源
+     * 将资源加载到loadedResMap中 表示资源已加载
+     * @param key 资源路径
+     * @param name 资源名称
+     * @param type 资源类型
+     * @param bundle 资源包
+     * @returns 资源
+    */
     private async Asset2Load(key: string, name?: string, type?: typeof Asset, bundle?: string) {
         let res = this.resMap.get(key);
+        // 如果资源不存在 则加载资源 加载单个资源
         if (!res && name) {
             // let url = key + "/" + name;
             console.log("加载资源--->ResManager.Asset2Load", key);
             await this.loadAsset(key, type, name, bundle);
             res = this.resMap.get(key);
         }
+        // 如果资源不存在 则加载资源 加载文件夹下的所有资源
+        if (!res && name == null) {
+            await this.loadDir(key, type, bundle);
+            res = this.resMap.get(key);
+        }
+
         this.loadedResMap.set(key, res);
         console.log("资源加载成功--->ResManager.Asset2Load", this.loadedResMap);
         return res;

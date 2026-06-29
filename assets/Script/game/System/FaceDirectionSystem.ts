@@ -23,7 +23,7 @@ export class FaceDirectionSystem extends ISystem {
             //证明输入的方向是向左 与原图方向相反
             if (direction.x < 0) {
                 node.setScale(-1, 1, 1)
-            } else {
+            } else if (direction.x > 0) {
                 node.setScale(1, 1, 1)
             }
         }

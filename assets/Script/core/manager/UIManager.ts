@@ -140,6 +140,8 @@ class UIManager {
 export enum PathEnum {
     /**角色UI*/
     Actor = "Prefab/Actor",
+    ActorIdle = "texture/actor/idle",
+    ActorRun = "texture/actor/run",
 }
 /**
  * 用于加载Prefab资源

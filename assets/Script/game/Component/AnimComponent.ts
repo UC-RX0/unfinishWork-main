@@ -20,7 +20,7 @@ export class AnimComponent implements IComponent {
     frameDatas: Map<IState, SpriteFrame[]> = new Map();
     frameIndex: number = 0;
     timer: number = 0;
-    frameInterval: number = 1 / 60; //每帧时间间隔 0.0167s
+    frameInterval: number = 1/10; //每帧时间间隔 0.0167s
     /**是否循环播放*/
     loop: boolean = false;
     /**是否播放完成*/

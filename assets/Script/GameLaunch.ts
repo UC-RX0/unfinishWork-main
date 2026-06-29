@@ -1,8 +1,9 @@
-import { _decorator, Component, instantiate, Node, Prefab, resources } from 'cc';
+import { _decorator, Component, instantiate, Node, Prefab, resources, SpriteFrame } from 'cc';
 import { resMgr } from './core/manager/ResManager';
 import { LayerEnum, PathEnum, UIEnum, uiMgr } from './core/manager/UIManager';
 import { world } from './game/World';
-import { PlayerInputComponent, PosComponent, VelocityComponent, ViewComponent } from './game/Component';
+import { AnimComponent, PlayerInputComponent, PosComponent, VelocityComponent, ViewComponent } from './game/Component';
+import { IState } from './game/Component/AnimComponent';
 const { ccclass, property } = _decorator;
 
 @ccclass('GameLaunch')
@@ -24,7 +25,9 @@ export class GameLaunch extends Component {
         world.addComp(id, PlayerInputComponent).playerIndex = 0;
         world.addComp(id, VelocityComponent).speed = 100;
         world.addComp(id, PosComponent)
-
+        let animComp: AnimComponent = world.addComp(id, AnimComponent);
+        animComp.frameDatas.set(IState.Idle, await resMgr.getAssetByPath(PathEnum.ActorIdle) as SpriteFrame[])
+        animComp.frameDatas.set(IState.Walk, await resMgr.getAssetByPath(PathEnum.ActorRun) as SpriteFrame[])
         let node = await resMgr.getNodeFromPool(PathEnum.Actor, UIEnum.Actor);
         node.parent = uiMgr.getLayer(LayerEnum.GameLayer);
         world.addComp(id, ViewComponent).node = node;
