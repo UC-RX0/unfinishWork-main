@@ -52,7 +52,7 @@
     },
     "autoReleaseAssets": false,
     "_globals": {
-      "__id__": 53
+      "__id__": 52
     },
     "_id": "8637970c-ef4d-4898-9cd2-2757dd6694b5"
   },
@@ -78,6 +78,9 @@
     "_active": true,
     "_components": [
       {
+        "__id__": 48
+      },
+      {
         "__id__": 49
       },
       {
@@ -85,9 +88,6 @@
       },
       {
         "__id__": 51
-      },
-      {
-        "__id__": 52
       }
     ],
     "_prefab": null,
@@ -991,7 +991,7 @@
     "_active": true,
     "_components": [
       {
-        "__id__": 48
+        "__id__": 47
       }
     ],
     "_prefab": null,
@@ -1043,13 +1043,13 @@
     "_active": true,
     "_components": [
       {
+        "__id__": 44
+      },
+      {
         "__id__": 45
       },
       {
         "__id__": 46
-      },
-      {
-        "__id__": 47
       }
     ],
     "_prefab": null,
@@ -1633,11 +1633,7 @@
     },
     "_enabled": true,
     "__prefab": null,
-    "clickEvents": [
-      {
-        "__id__": 44
-      }
-    ],
+    "clickEvents": [],
     "_interactable": true,
     "_transition": 3,
     "_normalColor": {
@@ -1674,18 +1670,10 @@
     "_disabledSprite": null,
     "_duration": 0.1,
     "_zoomScale": 0.8,
-    "_target": null,
-    "_id": "18HxKAH6dJ666y88vM4S65"
-  },
-  {
-    "__type__": "cc.ClickEvent",
-    "target": {
-      "__id__": 27
+    "_target": {
+      "__id__": 39
     },
-    "component": "",
-    "_componentId": "fcc05B3lfVGR7XZO9RbbVLh",
-    "handler": "onShootStart",
-    "customEventData": ""
+    "_id": "37xDCGQDZCzqdN6VFMdO8U"
   },
   {
     "__type__": "cc.UITransform",
@@ -1865,28 +1853,28 @@
   {
     "__type__": "cc.SceneGlobals",
     "ambient": {
-      "__id__": 54
+      "__id__": 53
     },
     "shadows": {
-      "__id__": 55
+      "__id__": 54
     },
     "_skybox": {
-      "__id__": 56
+      "__id__": 55
     },
     "fog": {
-      "__id__": 57
+      "__id__": 56
     },
     "octree": {
-      "__id__": 58
+      "__id__": 57
     },
     "skin": {
-      "__id__": 59
+      "__id__": 58
     },
     "lightProbeInfo": {
-      "__id__": 60
+      "__id__": 59
     },
     "postSettings": {
-      "__id__": 61
+      "__id__": 60
     },
     "bakedWithStationaryMainLight": false,
     "bakedWithHighpLightmap": false

@@ -16,25 +16,30 @@ export class JoyStickManager extends Component {
     private isFix = false;
     private defaultBgPos: Vec3 = null;
     private maxRadius: number = 0;
-    private shootBtn: Button = null;
+
     //当前只有一个玩家 后期拓展为多个玩家的时候可以 在进入房间后根据玩家索引设置不同的输入索引
     //private PlayerIndex:number = 0;
     onLoad() {
         input.on(Input.EventType.TOUCH_START, this.onTouchStart, this);
         input.on(Input.EventType.TOUCH_MOVE, this.onTouchMove, this);
         input.on(Input.EventType.TOUCH_END, this.onTouchEnd, this);
-        this.shootBtn = this.shoot.getComponent(Button);
-        this.shootBtn.node.on(Button.EventType.CLICK, this.onShootEnd, this);
+        this.shoot.on(Node.EventType.TOUCH_START, this.onShootStart, this);
+        this.shoot.on(Node.EventType.TOUCH_END, this.onShootEnd, this);
         this.defaultBgPos = this.background.position.clone();
         this.maxRadius = this.background.getComponent(UITransform).width / 2;
     }
 
     private onTouchStart(event: EventTouch) {
+        const uiPos = event.getUILocation();
+        if (this.isTouchOnNode(uiPos, this.shoot)) return;
         if (this.isFix) return;
+
         const touchPos = this.screenToLocal(event);
         this.background.setPosition(touchPos);
     }
     private onTouchMove(event: EventTouch) {
+        const uiPos = event.getUILocation();
+        if (this.isTouchOnNode(uiPos, this.shoot)) return;
         const touchPos = this.screenToLocal(event);
         const bgPos = this.background.position;
         const delta = touchPos.subtract(bgPos);
@@ -55,6 +60,8 @@ export class JoyStickManager extends Component {
     }
 
     private onTouchEnd(event: EventTouch) {
+        const uiPos = event.getUILocation();
+        if (this.isTouchOnNode(uiPos, this.shoot)) return;
         this.Point.setPosition(0, 0, 0);
 
         if (!this.isFix) {
@@ -64,16 +71,23 @@ export class JoyStickManager extends Component {
         inputMgr.setInput(0, Vec2.ZERO, 0);
     }
     private onShootStart() {
-        inputMgr.setShoot(0, true);
+        inputMgr.fireDown(0);
     }
     private onShootEnd() {
-        inputMgr.setShoot(0, false);
+        inputMgr.fireUp(0);
     }
+
     // 触摸点屏幕坐标 → JoyStick 本地坐标
     private screenToLocal(event: EventTouch): Vec3 {
         const uiPos = event.getUILocation();
         return this.node.getComponent(UITransform)
             .convertToNodeSpaceAR(v3(uiPos.x, uiPos.y, 0));
+    }
+
+    private isTouchOnNode(uiPos: Vec2, node: Node): boolean {
+        const transform = node.getComponent(UITransform);
+        const box = transform.getBoundingBox();
+        return box.contains(uiPos);
     }
 
 

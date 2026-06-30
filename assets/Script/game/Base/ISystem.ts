@@ -13,6 +13,7 @@ export abstract class ISystem {
     /**系统依赖的组件 仅做限定查找条件 比如说角色需要有ViewComponent和OwnerComponent组件，但是PlayerIndexComponent组件作为角色唯一标识 可以带上 缩小查找范围，提高效率*/
     abstract requiredComponents: ComponentClass<any>[];
     /**执行操作， 每帧需要执行的逻辑*/
+    //证明这个Update的设计还是不够理想 要等到所有物体准备就绪后再执行
     abstract update(dt: number): void;
     abstract init(): void;
     //开启或关闭系统

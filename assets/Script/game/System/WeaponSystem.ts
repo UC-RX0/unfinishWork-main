@@ -18,22 +18,24 @@ export class WeaponSystem extends ISystem {
         for (const entity of entitis) {
             let weaponComponent = this.world.getComp(entity, WeaponComponent);
             let { ownerId } = this.world.getComp(entity, OwnerComponent);
-            //从Owner中获取方向
-            let vel = this.world.getComp(ownerId, VelocityComponent);
-            if (!vel) continue;
-            let direction = vel.direction;
 
             let playerInput = this.world.getComp(ownerId, PlayerInputComponent);
             if (!playerInput) continue;
-            if (playerInput.playerIndex === null || playerInput.playerIndex === undefined) continue;
-            let isShoot = inputMgr.getShoot(playerInput.playerIndex);
-            if (!isShoot) continue;
-            //攻击间隔
+            const playerIndex = playerInput.playerIndex;
+            if (playerIndex === null || playerIndex === undefined) continue;
+
+            // 攻击冷却计时
             weaponComponent.timer += dt;
             if (weaponComponent.timer >= weaponComponent.fireInterval) {
-                weaponComponent.timer = 0;
-                //创建子弹
-                this.createBullet(ownerId, direction);
+                if (inputMgr.wantsToFire(playerIndex)) {
+                    weaponComponent.timer -= weaponComponent.fireInterval;
+                    // 从角度计算子弹方向
+                    let rad = weaponComponent.angle * Math.PI / 180;
+                    let direction = new Vec2(Math.cos(rad), Math.sin(rad));
+                    this.createBullet(ownerId, direction);
+                } else {
+                    weaponComponent.timer = weaponComponent.fireInterval;
+                }
             }
         }
     }
@@ -53,5 +55,4 @@ export class WeaponSystem extends ISystem {
         bulletComp.entity = entity;
         viewComp.node.setParent(uiMgr.getLayer(LayerEnum.GameLayer));
     }
-
 }

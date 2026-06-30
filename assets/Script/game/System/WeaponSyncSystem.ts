@@ -13,18 +13,16 @@ export class WeaponSyncSystem extends ISystem {
     update(dt: number): void {
         let entitis = this.world.query(...this.requiredComponents);
         for (const entity of entitis) {
-            // console.log("WeaponSyncSystem", entity);
             let { ownerId } = this.world.getComp(entity, OwnerComponent);
             let { direction } = this.world.getComp(ownerId, VelocityComponent);
             let { node } = this.world.getComp(entity, ViewComponent);
+            let weaponComponent = this.world.getComp(entity, WeaponComponent);
             if (!node) continue;
             if (direction.length() <= 0) continue;
-            // 只有Sin函数 在一二象限是正数 三四象限是负数 符合Cocos的角度方向
             let angle = Math.asin(Math.sin(direction.y / direction.length())) * 180 / Math.PI;
-            console.log("angle", angle);
+            // 转换为角度
             node.angle = angle;
+            weaponComponent.angle = angle;
         }
     }
-
-
 }

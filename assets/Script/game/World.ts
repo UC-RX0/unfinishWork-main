@@ -69,8 +69,8 @@ class World implements IWorld {
         this.registerComponent(OwnerComponent);
         this.registerComponent(WeaponComponent);
         this.registerSystem(new InputSystem(), 0);
-        this.registerSystem(new WeaponSystem(), 90);
         this.registerSystem(new MoveSystem(), 100);
+        this.registerSystem(new WeaponSystem(), 101);
         this.registerSystem(new BulletSystem(), 105);
         this.registerSystem(new AnimSyncSystem(), 150);
         this.registerSystem(new PosSynSystem(), 200);

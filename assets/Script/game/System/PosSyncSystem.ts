@@ -15,6 +15,7 @@ export class PosSyncSystem extends ISystem {
 
     update(dt: number): void {
         const entityID = this.world.query(ViewComponent, PosComponent);
+        // console.log("PosSyncSystem update entityID", entityID);
         for (const id of entityID) {
             const pos = this.world.getComp(id, PosComponent);
             const view = this.world.getComp(id, ViewComponent);

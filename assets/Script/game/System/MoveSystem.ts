@@ -15,10 +15,10 @@ export class MoveSystem extends ISystem {
         this.enable = true;
     }
     //开启或关闭系统
-
     update(dt: number) {
         //根据速度和方向更新位置
         let entityId = this.world.query(...this.requiredComponents);
+        // console.log("MoveSystem update entityId", entityId);
         for (let id of entityId) {
             let posComponent = this.world.getComp(id, PosComponent);
             let velocityComponent = this.world.getComp(id, VelocityComponent);
