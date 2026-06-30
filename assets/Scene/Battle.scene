@@ -1675,7 +1675,7 @@
     "_duration": 0.1,
     "_zoomScale": 0.8,
     "_target": null,
-    "_id": "3f5jlxjQNMtaVVcllemODG"
+    "_id": "18HxKAH6dJ666y88vM4S65"
   },
   {
     "__type__": "cc.ClickEvent",
@@ -1683,8 +1683,8 @@
       "__id__": 27
     },
     "component": "",
-    "_componentId": "9517fznm65P6aN+Bqn+leiq",
-    "handler": "onShoot",
+    "_componentId": "fcc05B3lfVGR7XZO9RbbVLh",
+    "handler": "onShootStart",
     "customEventData": ""
   },
   {

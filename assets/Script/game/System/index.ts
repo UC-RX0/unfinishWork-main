@@ -3,3 +3,6 @@ export { InputSystem } from './InputSystem';
 export { MoveSystem } from './MoveSystem';
 export { PosSyncSystem as PosSynSystem } from './PosSyncSystem';
 export { AnimSyncSystem } from './AnimSyncSystem';
+export { WeaponSyncSystem } from './WeaponSyncSystem';
+export { WeaponSystem } from './WeaponSystem';
+export { BulletSystem } from './BulletSystem';

@@ -15,7 +15,7 @@ export interface IWorld {
     /**注册组件*/
     registerComponent(componentClass: new (...args: any[]) => any, bit?: number): void
     /**添加组件*/
-    addComp(entityId: number, componentClass: new (...args: any[]) => any): void
+    addComp(entityId: number, componentClass: new (...args: any[]) => any): any
     /**移除组件*/
     removeComp(entityId: number, componentClass: new (...args: any[]) => any): void
     /**判断实体是否有组件*/

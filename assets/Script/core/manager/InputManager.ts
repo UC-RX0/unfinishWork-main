@@ -9,6 +9,8 @@ class InputManager {
         return this._instance;
     }
     private inputMap: Map<number, { direction: Vec2, speed: number }> = new Map();
+    private shootMap: Map<number, boolean> = new Map();
+    //#region 方向盘输入
     public setInput(id: number, direction: Vec2, speed: number) {
         this.inputMap.set(id, { direction, speed });
     }
@@ -18,5 +20,14 @@ class InputManager {
     public removeInput(id: number) {
         this.inputMap.delete(id);
     }
+    //#endregion
+    //#region 射击输入
+    public setShoot(id: number, shoot: boolean) {
+        this.shootMap.set(id, shoot);
+    }
+    public getShoot(playerIndex: number) {
+        return this.shootMap.get(playerIndex) || false;
+    }
+    //#endregion
 }
 export const inputMgr = InputManager.instance;

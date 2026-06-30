@@ -142,6 +142,8 @@ export enum PathEnum {
     Actor = "Prefab/Actor",
     ActorIdle = "texture/actor/idle",
     ActorRun = "texture/actor/run",
+    Bullet2 = "Prefab/Bullet",
+    Weapon = "Prefab/Weapon",
 }
 /**
  * 用于加载Prefab资源
@@ -149,6 +151,10 @@ export enum PathEnum {
 export enum UIEnum {
     /**角色UI*/
     Actor = "Actor",
+    /**子弹UI*/
+    Bullet2 = "Bullet2",
+    /**武器UI*/
+    Weapon1 = "Weapon1",
 }
 class UIHelper {
     /**加载UI节点*/

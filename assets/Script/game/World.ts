@@ -7,8 +7,9 @@ import { gameParam } from '../core/game/GameSetting';
 import { ISystem } from './Base/ISystem';
 import { ComponentClass } from './tool/ComponentManager';
 import { IComponent } from './Base/IComponent';
-import { AnimComponent, PlayerInputComponent, PosComponent, VelocityComponent, ViewComponent } from './Component';
-import { AnimSyncSystem, FaceDirectionSystem, InputSystem, MoveSystem, PosSynSystem } from './System';
+import { AnimComponent, BulletComponent, OwnerComponent, PlayerInputComponent, PosComponent, VelocityComponent, ViewComponent, WeaponComponent } from './Component';
+import { AnimSyncSystem, BulletSystem, FaceDirectionSystem, InputSystem, MoveSystem, PosSynSystem, WeaponSyncSystem, WeaponSystem } from './System';
+
 
 /**
  *@description 世界类
@@ -64,11 +65,17 @@ class World implements IWorld {
         this.registerComponent(PlayerInputComponent);
         this.registerComponent(ViewComponent);
         this.registerComponent(AnimComponent);
+        this.registerComponent(BulletComponent);
+        this.registerComponent(OwnerComponent);
+        this.registerComponent(WeaponComponent);
         this.registerSystem(new InputSystem(), 0);
+        this.registerSystem(new WeaponSystem(), 90);
         this.registerSystem(new MoveSystem(), 100);
+        this.registerSystem(new BulletSystem(), 105);
         this.registerSystem(new AnimSyncSystem(), 150);
         this.registerSystem(new PosSynSystem(), 200);
         this.registerSystem(new FaceDirectionSystem(), 201);
+        this.registerSystem(new WeaponSyncSystem(), 209);
     }
 
     offAllBase() {

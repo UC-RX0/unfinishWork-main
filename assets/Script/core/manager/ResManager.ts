@@ -242,13 +242,10 @@ class ResManager {
     */
     async getAssetByPath(key: string, name?: string, bundle?: string, type?: typeof Asset) {
         let res: IRes[] = this.loadedResMap.get(key);
-        console.log("当前资源加载情况为-------2", res);
         if (!res) {
-            console.log("程序进行到此")
             res = await this.Asset2Load(key, name, type, bundle);
         }
         let result: Asset[] = [];
-        console.log("当前资源加载情况为", res);
         if (res.length > 0) {
             result = res.map((item) => item.data);
         } else {
@@ -271,7 +268,7 @@ class ResManager {
         let node = instantiate(prefab);
         return node;
     }
-    public async putNodeToPool(node: Node, name: string, key?: string) {
+    public putNodeToPool(node: Node, name: string, key?: string) {
         if (!node) return;
         let url = name;
         let pool = this.getPool(url);
@@ -307,6 +304,14 @@ class ResManager {
         if (!spine) return;
 
         //暂时用不上
+    }
+    public getPrefab(key: string, name: string): Prefab {
+        let prefab = this.resMap.get(key);
+        let item: IRes = null;
+        if (prefab) {
+            item = prefab.find((item) => item.name === name);
+        }
+        return item.data as Prefab;
     }
     //#endregion
     private saveAsset(key: string, res: Asset[], type?: typeof Asset, name?: string) {
