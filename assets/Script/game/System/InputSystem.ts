@@ -12,8 +12,6 @@ export class InputSystem extends ISystem {
         //初始化系统
         this.enable = true;
     }
-
-
     update(dt: number): void {
         //拿到所有玩家的ID
         const entityID = this.world.query(PlayerInputComponent, VelocityComponent);

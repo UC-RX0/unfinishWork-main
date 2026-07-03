@@ -15,7 +15,10 @@ export abstract class ISystem {
     /**执行操作， 每帧需要执行的逻辑*/
     //证明这个Update的设计还是不够理想 要等到所有物体准备就绪后再执行
     abstract update(dt: number): void;
-    abstract init(): void;
+    init(): void {
+        //初始化系统
+        this.enable = true;
+    };
     //开启或关闭系统
     public enableOrDisable(enable: boolean): void {
         this.enable = enable;

@@ -1,11 +1,13 @@
 import { ISystem } from "../Base/ISystem";
-import { BulletComponent } from "../Component";
+import { AnimComponent, BulletComponent, ViewComponent } from "../Component";
+import { IState } from "../Component/AnimComponent";
 import { ComponentClass } from "../tool/ComponentManager";
+import { WeaponSystem } from "./WeaponSystem";
 
 
 //优先级105
 export class BulletSystem extends ISystem {
-    requiredComponents: ComponentClass<any>[] = [BulletComponent];
+    requiredComponents: ComponentClass<any>[] = [BulletComponent, ViewComponent];
     init(): void {
         this.enable = true;
     }
@@ -13,8 +15,10 @@ export class BulletSystem extends ISystem {
         let entities = this.world.query(...this.requiredComponents);
         for (let entity of entities) {
             let bulletComponent = this.world.getComp(entity, BulletComponent);
-            bulletComponent.lifeTime -= dt;
-            if (bulletComponent.lifeTime <= 0) {
+            let { node } = this.world.getComp(entity, ViewComponent);
+            let anim = this.world.getComp(entity, AnimComponent);
+            if (anim && anim.isComplete) {
+                WeaponSystem.bulletPool.put(node);
                 this.world.removeEntity(bulletComponent.entity);
             }
         }

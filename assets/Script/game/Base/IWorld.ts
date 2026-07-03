@@ -8,6 +8,8 @@ export interface IWorld {
     createEntity(): Entity;
     /**销毁实体*/
     removeEntity(entity: Entity): void
+    /**通过ID销毁实体*/
+    removeEntityById(entityId: number): void
     /**判断实体是否存活*/
     isEntityAlive(entity: Entity): boolean
     //#endregion
@@ -15,7 +17,7 @@ export interface IWorld {
     /**注册组件*/
     registerComponent(componentClass: new (...args: any[]) => any, bit?: number): void
     /**添加组件*/
-    addComp(entityId: number, componentClass: new (...args: any[]) => any): any
+    addComp<T>(entityId: number, componentClass: new (...args: any[]) => T): T | undefined;
     /**移除组件*/
     removeComp(entityId: number, componentClass: new (...args: any[]) => any): void
     /**判断实体是否有组件*/

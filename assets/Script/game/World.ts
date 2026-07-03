@@ -7,8 +7,8 @@ import { gameParam } from '../core/game/GameSetting';
 import { ISystem } from './Base/ISystem';
 import { ComponentClass } from './tool/ComponentManager';
 import { IComponent } from './Base/IComponent';
-import { AnimComponent, BulletComponent, OwnerComponent, PlayerInputComponent, PosComponent, VelocityComponent, ViewComponent, WeaponComponent } from './Component';
-import { AnimSyncSystem, BulletSystem, FaceDirectionSystem, InputSystem, MoveSystem, PosSynSystem, WeaponSyncSystem, WeaponSystem } from './System';
+import { AnimComponent, BulletComponent, DamageComponent, EnemyAIComponent, EnemyComponent, HealthComponent, OwnerComponent, PlayerInputComponent, PosComponent, VelocityComponent, ViewComponent, WeaponComponent } from './Component';
+import { AISystem, AnimPlaySystem, BulletDirSystem, BulletSystem, DamageSystem, DeathSystem, EnemySpawnSystem, FaceDirectionSystem, InputSystem, MoveSystem, PosSynSystem, WeaponSyncSystem, WeaponSystem } from './System';
 
 
 /**
@@ -68,14 +68,23 @@ class World implements IWorld {
         this.registerComponent(BulletComponent);
         this.registerComponent(OwnerComponent);
         this.registerComponent(WeaponComponent);
+        this.registerComponent(EnemyComponent);
+        this.registerComponent(EnemyAIComponent);
+        this.registerComponent(HealthComponent);
+        this.registerComponent(DamageComponent);
         this.registerSystem(new InputSystem(), 0);
+        this.registerSystem(new EnemySpawnSystem(), 5);
+        this.registerSystem(new WeaponSystem(), 90);
+        this.registerSystem(new AISystem(), 96);
         this.registerSystem(new MoveSystem(), 100);
-        this.registerSystem(new WeaponSystem(), 101);
+        this.registerSystem(new BulletDirSystem(), 103);
         this.registerSystem(new BulletSystem(), 105);
-        this.registerSystem(new AnimSyncSystem(), 150);
+        this.registerSystem(new DamageSystem(), 120);
+        this.registerSystem(new DeathSystem(), 130);
         this.registerSystem(new PosSynSystem(), 200);
         this.registerSystem(new FaceDirectionSystem(), 201);
         this.registerSystem(new WeaponSyncSystem(), 209);
+        this.registerSystem(new AnimPlaySystem(), 500);
     }
 
     offAllBase() {
@@ -95,9 +104,13 @@ class World implements IWorld {
      * @param entity 实体对象
     */
     removeEntity(entity: Entity): void {
-        //先从系统中移除实体
         this.componentManager.removeAllComponents(entity.id);
         this.entityPool.destroy(entity);
+    }
+    removeEntityById(entityId: number): void {
+        let gen = this.entityPool.generations.get(entityId);
+        if (gen === undefined) return;
+        this.removeEntity({ id: entityId, generation: gen });
     }
     /**查询实体
      * 通过使用池提供的方法判断实体是否存活。

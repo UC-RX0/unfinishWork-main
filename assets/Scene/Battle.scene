@@ -418,7 +418,7 @@
         "__id__": 11
       }
     ],
-    "_active": true,
+    "_active": false,
     "_components": [
       {
         "__id__": 23
@@ -1848,7 +1848,7 @@
     },
     "_enabled": true,
     "__prefab": null,
-    "_id": "e9xhpQTwxJbZWEYbwDx56h"
+    "_id": "84xjjuiCdArLINdHwd8d1n"
   },
   {
     "__type__": "cc.SceneGlobals",

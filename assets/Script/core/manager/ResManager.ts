@@ -260,7 +260,7 @@ class ResManager {
     public async getNodeFromPool(key: string, name: string) {
         let url = name;
         let pool = this.getPool(url);
-        if (pool.length > 0) {
+        if (pool.length > 0){
             return pool.pop();
         }
         // 如果对象池中没有 则创建一个节点
@@ -312,6 +312,16 @@ class ResManager {
             item = prefab.find((item) => item.name === name);
         }
         return item.data as Prefab;
+    }
+    public getSpriteFrames(key: string): SpriteFrame[] {
+        let spriteFrames = this.resMap.get(key);
+        let result: Asset[] = [];
+        if (spriteFrames) {
+            result = spriteFrames.map((item) => item.data);
+        }
+
+
+        return result as SpriteFrame[];
     }
     //#endregion
     private saveAsset(key: string, res: Asset[], type?: typeof Asset, name?: string) {

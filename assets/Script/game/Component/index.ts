@@ -6,3 +6,8 @@ export { AnimComponent } from "./AnimComponent";
 export { WeaponComponent } from "./WeaponComponent";
 export { OwnerComponent } from "./OwnerComponent";
 export { BulletComponent } from "./BulletComponent";
+export { EnemyAIComponent } from "./EnemyAIComponent";
+export { EnemyComponent } from "./EnemyComponent";
+export { HealthComponent } from "./HealthComponent";
+export { DamageComponent } from "./DamageComponent";
+export { HitCooldownComponent } from "./HitCooldownComponent";
