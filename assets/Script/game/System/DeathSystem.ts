@@ -18,9 +18,8 @@ export class DeathSystem extends ISystem {
             let anim = this.world.getComp(entity, AnimComponent);
 
             if (health.health <= 0) {
-                // 根据实体配置选择死亡动画key
                 let deadKey = anim.configs.has('dead') ? 'dead' : (anim.configs.has(IState.Explode) ? IState.Explode : null);
-                if (deadKey && anim.state !== deadKey && anim.nextState === null) {
+                if (deadKey && anim.state !== deadKey) {
                     anim.nextState = deadKey;
                 }
                 if (anim.isComplete) {

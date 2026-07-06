@@ -171,6 +171,7 @@ class World implements IWorld {
     */
     registerSystem(system: ISystem, priority: number): void {
         system.world = this;
+        system.init();
         this.systemManager.registerSystem(system, priority);
     }
 

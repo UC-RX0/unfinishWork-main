@@ -1,6 +1,6 @@
 
 import { ISystem } from "../Base/ISystem";
-import { AnimComponent, BulletComponent, PosComponent, VelocityComponent } from "../Component";
+import { AnimComponent, BulletComponent, HealthComponent, PosComponent, VelocityComponent } from "../Component";
 import { IState } from "../Component/AnimComponent";
 import { ComponentClass } from "../tool/ComponentManager";
 //  移动系统
@@ -25,7 +25,9 @@ export class MoveSystem extends ISystem {
             let velocityComponent = this.world.getComp(id, VelocityComponent);
             let anim = this.world.getComp(id, AnimComponent);
             let isBullet = this.world.hasComp(id, BulletComponent);
-            if (anim && !isBullet && anim.nextState === null && anim.state !== IState.Attack) {
+            let health = this.world.getComp(id, HealthComponent);
+            let isDead = health && health.health <= 0;
+            if (anim && !isBullet && !isDead && anim.nextState === null && anim.state !== IState.Attack) {
                 if (velocityComponent.direction.lengthSqr() > 0.01) {
                     anim.nextState = IState.Walk;
                 }
