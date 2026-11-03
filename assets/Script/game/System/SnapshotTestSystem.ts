@@ -22,8 +22,12 @@ import { ComponentClass } from "../tool/ComponentManager";
 export class SnapshotTestSystem extends ISystem {
     requiredComponents: ComponentClass<any>[] = [];
 
-    /**是否启用自检*/
-    public static enabled: boolean = true;
+    /**
+     * 是否启用自检。
+     * 默认关闭：自检会把世界倒带重演，视觉上表现为"怪物突然消失又出现"，
+     * 会干扰正常游玩。需要验证时手动改成 true 再跑一次即可。
+     */
+    public static enabled: boolean = false;
     /**在哪一帧存快照*/
     public static captureFrame: number = 200;
     /**在哪一帧比对校验和*/
