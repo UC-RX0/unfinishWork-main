@@ -86,4 +86,14 @@ export const BATTLE_CONFIG = {
         maxPlayers: 2,
     },
     //#endregion
+    //#region 调试
+    /**
+     * 验证模式：打开后
+     *   1. 玩家会被脚本接管（绕圈走 + 持续射击），不需要手点屏幕
+     *   2. 怪物状态探针会输出"四个状态是否都被走到"的统计
+     * 用来自动验证射击 → 命中 → 受击 → 死亡这条链路。
+     * 验证完记得关掉，否则玩家会自己乱动。
+     */
+    verifyMode: false,
+    //#endregion
 };

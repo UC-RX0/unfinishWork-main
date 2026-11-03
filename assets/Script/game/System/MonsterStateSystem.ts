@@ -3,7 +3,7 @@ import { HealthComponent, VelocityComponent } from "../Component";
 import { EnemyAIComponent } from "../Component/EnemyAIComponent";
 import { EnemyComponent } from "../Component/EnemyComponent";
 import { MonsterStateComponent } from "../Component/MonsterStateComponent";
-import { MONSTER_VISUAL_CFG, MonsterState } from "../Config/MonsterState";
+import { MONSTER_VISUAL_CFG, MonsterState, MonsterStateStats } from "../Config/MonsterState";
 import { ComponentClass } from "../tool/ComponentManager";
 
 /**
@@ -30,6 +30,11 @@ export class MonsterStateSystem extends ISystem {
     update(dt: number): void {
         const frame = this.world.frame;
         const entities = this.world.query(...this.requiredComponents);
+
+        // 统计当前各状态的存活数量（调试用）
+        for (let i = 0; i < MonsterStateStats.aliveCount.length; i++) {
+            MonsterStateStats.aliveCount[i] = 0;
+        }
 
         for (let i = 0; i < entities.length; i++) {
             const id = entities[i];
@@ -65,6 +70,8 @@ export class MonsterStateSystem extends ISystem {
             const range = enemy ? enemy.attackRange : 0;
             const inRange = ai && range > 0 && ai.distanceSqToTarget <= range * range;
 
+            MonsterStateStats.aliveCount[st.state]++;
+
             if (inRange) {
                 // 攻击动作播完后自动重来一次，形成连续攻击的观感
                 if (st.state === MonsterState.Attack
@@ -86,5 +93,7 @@ export class MonsterStateSystem extends ISystem {
         if (st.state === next) return;
         st.state = next;
         st.enterFrame = frame;
+        // 统计各状态被进入的次数，用于自动验证四态是否都覆盖到
+        MonsterStateStats.enterCount[next]++;
     }
 }

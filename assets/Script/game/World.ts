@@ -7,7 +7,7 @@ import { ISystem } from './Base/ISystem';
 import { ComponentClass } from './tool/ComponentManager';
 import { IComponent } from './Base/IComponent';
 import { AnimComponent, BulletComponent, DamageComponent, EnemyAIComponent, EnemyComponent, HealthComponent, OwnerComponent, PlayerInputComponent, PosComponent, VelocityComponent, ViewComponent, WeaponComponent } from './Component';
-import { AISystem, AnimRenderSystem, AnimTickSystem, BulletDirSystem, BulletSystem, ChecksumSystem, DamageSystem, DeathSystem, EnemySpawnSystem, FaceDirectionSystem, InputSystem, MonsterStateSystem, MonsterVisualSystem, MoveSystem, PosSynSystem, SnapshotTestSystem, WeaponAimSystem, WeaponViewSystem, WeaponSystem } from './System';
+import { AISystem, AnimRenderSystem, AnimTickSystem, BulletDirSystem, BulletSystem, ChecksumSystem, DamageSystem, DeathSystem, EnemySpawnSystem, FaceDirectionSystem, InputSystem, MonsterStateProbeSystem, MonsterStateSystem, MonsterVisualSystem, MoveSystem, PosSynSystem, ScriptedInputSystem, SnapshotTestSystem, WeaponAimSystem, WeaponViewSystem, WeaponSystem } from './System';
 import { MonsterStateComponent } from './Component/MonsterStateComponent';
 import { FixedStepClock } from './tool/FixedStepClock';
 import { logicRng } from './Math/PRNG';
@@ -243,6 +243,8 @@ class World implements IWorld {
         this.registerComponent(DamageComponent);
         this.registerComponent(MonsterStateComponent);
         //#region 逻辑段：只读写组件数据，不碰任何节点
+        // 脚本输入要在 InputSystem 之前注入，否则本帧采到的是上一帧的输入
+        this.registerSystem(new ScriptedInputSystem(), -1);
         this.registerSystem(new InputSystem(), 0);
         this.registerSystem(new EnemySpawnSystem(), 5);
         // 武器朝向要在 WeaponSystem 之前算好，本帧射击就能用上本帧方向
@@ -273,6 +275,8 @@ class World implements IWorld {
         this.registerSystem(new ChecksumSystem(), 1000);
         // 快照往返自检放最后：它会还原世界，必须在其他系统都跑完之后
         this.registerSystem(new SnapshotTestSystem(), 1001);
+        // 怪物状态探针：统计四态覆盖情况
+        this.registerSystem(new MonsterStateProbeSystem(), 1002);
     }
 
     offAllBase() {

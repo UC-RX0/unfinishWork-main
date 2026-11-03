@@ -9,6 +9,7 @@ import { NetClient } from './game/Net/NetClient';
 import { NetworkInputSource } from './game/Net/NetworkInputSource';
 import type { WelcomeMsg } from './game/Net/Protocol';
 import { ChecksumSystem } from './game/System';
+import { MonsterStateProbeSystem, ScriptedInputSystem } from './game/System';
 import { IState } from './game/Component/AnimComponent';
 import { AnimComponent, HealthComponent, OwnerComponent, PlayerInputComponent, PosComponent, VelocityComponent, ViewComponent, WeaponComponent } from './game/Component';
 import { world } from './game/World';
@@ -61,6 +62,15 @@ export class GameLaunch extends Component {
 
         // 资源已封盘，以下全部是同步流程，不会再有任何一帧被打断
         uiMgr.init();
+
+        // 验证模式：把玩家交给脚本，并打开怪物状态探针
+        if (BATTLE_CONFIG.verifyMode) {
+            ScriptedInputSystem.enabled = true;
+            ScriptedInputSystem.mode = 'orbit';
+            MonsterStateProbeSystem.enabled = true;
+            console.log("[GameLaunch] 验证模式：脚本输入已接管玩家，怪物状态探针已开启");
+        }
+
         // 随机源必须显式重置：模块级单例在重开一局时不会自动回到初始状态，
         // 不重置的话第二次进关的随机序列会接着上一次走，同一个 seed 也复现不出来
         logicRng.restore(welcome ? welcome.seed : BATTLE_CONFIG.randomSeed);

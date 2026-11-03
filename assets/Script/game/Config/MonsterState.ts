@@ -26,6 +26,34 @@ export enum MonsterState {
 export const MONSTER_STATE_NAME = ["Idle", "Move", "Attack", "Hit", "Dead"];
 
 /**
+ * @description 怪物状态统计（调试用）
+ * 记录每个状态被进入的次数，用来自动验证"四个状态是不是真的会走到"。
+ * 纯计数器，不影响逻辑结果。
+ */
+export class MonsterStateStats {
+    /**各状态进入次数，下标与 MonsterState 对应*/
+    public static enterCount: number[] = [0, 0, 0, 0, 0];
+    /**当前存活的怪物数量（按状态分）*/
+    public static aliveCount: number[] = [0, 0, 0, 0, 0];
+
+    public static reset(): void {
+        for (let i = 0; i < this.enterCount.length; i++) {
+            this.enterCount[i] = 0;
+            this.aliveCount[i] = 0;
+        }
+    }
+
+    /**汇总成一行可读文本*/
+    public static summary(): string {
+        const parts: string[] = [];
+        for (let i = 0; i < this.enterCount.length; i++) {
+            parts.push(`${MONSTER_STATE_NAME[i]}=${this.enterCount[i]}`);
+        }
+        return parts.join(",");
+    }
+}
+
+/**
  * @description 表现配置
  * 全部是整数帧或简单倍数，方便直接调参
  */
