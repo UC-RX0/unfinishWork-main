@@ -44,6 +44,21 @@ class InputManager {
         return held || requested;
     }
     //#endregion
+
+    /**
+     * @description 清空全部输入状态
+     *
+     * 【为什么必须有】
+     *   InputManager 是全局单例。上一局结束时玩家可能正按着摇杆/射击键，
+     *   如果不清理，重开一局的第一帧就会读到【上一局的残留输入】——
+     *   表现为"重开后角色自己动起来"，而且会破坏确定性
+     *   （两次运行的起始输入不同 → 校验和不同）。
+     */
+    public reset(): void {
+        this.inputMap.clear();
+        this.fireHeld.clear();
+        this.fireRequested.clear();
+    }
 }
 
 export const inputMgr = InputManager.instance;

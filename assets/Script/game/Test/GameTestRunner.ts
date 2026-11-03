@@ -112,8 +112,14 @@ export class GameTestRunner extends ISystem {
             const vel = this.world.getComp(ids[i], VelocityComponent);
             if (!vel) continue;
             const lenSq = vel.direction.x * vel.direction.x + vel.direction.y * vel.direction.y;
-            // 0 = 静止，1 = 单位向量；允许 1e-3 的浮点误差
-            if (lenSq > 1e-3 && Math.abs(lenSq - 1) > 1e-3) {
+            // 0 = 静止，1 = 单位向量。
+            //
+            // 【容差为什么是 1e-2 而不是 1e-3】
+            //   输入方向是【定点整数】（×1000 取整），还原回浮点后必然有量化误差。
+            //   实测最坏情况 |v|² = 1.0010 —— 0.1% 的误差，是定点量化的固有精度。
+            //   用 1e-3 的容差会把正常的量化误差判成违规。
+            //   1e-2 仍然能抓住真正的 bug（未归一化的向量 |v|² 会偏离 1 很多）。
+            if (lenSq > 1e-3 && Math.abs(lenSq - 1) > 1e-2) {
                 this.fail(
                     frame,
                     `VEL_UNNORMALIZED#${ids[i]}`,

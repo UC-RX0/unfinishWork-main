@@ -95,4 +95,14 @@ export interface IFrameInputSource {
     ready(frame: number, playerCount: number): boolean;
     /**清理不再需要的历史输入*/
     prune(frame: number): void;
+    /**
+     * @description 重置输入状态（开新一局时调用）
+     *
+     * 【为什么必须有】
+     *   InputManager 是全局单例。上一局结束时玩家可能正按着摇杆/射击键，
+     *   如果新一局不清理，第一帧就会读到【上一局的残留输入】——
+     *   表现是"重开后角色自己动起来"，
+     *   而且会破坏确定性（两次运行的起始输入不同 → 校验和不同）。
+     */
+    reset(): void;
 }

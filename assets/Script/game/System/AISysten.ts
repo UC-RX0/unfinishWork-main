@@ -63,8 +63,13 @@ export class AISystem extends ISystem {
             normalizeTo(velComp.direction, closestPos.x - posComp.pos.x, closestPos.y - posComp.pos.y);
 
             // 攻击范围内停下，否则以配置速度追击
-            const range = enemyComp.attackRange || BATTLE_CONFIG.enemyAttackRange;
-            velComp.speed = closestDistSq <= range * range ? 0 : BATTLE_CONFIG.enemyChaseSpeed;
+            //
+            // 【停止距离 < 攻击范围】
+            //   这样怪会在"还能攻击但还没贴脸"的位置停下来输出，
+            //   形成交战窗口。有了自动瞄准，玩家能远距离击杀，
+            //   如果两个距离一样，怪永远走不到攻击距离，Attack 状态不会触发。
+            const stopRange = enemyComp.stopRange || BATTLE_CONFIG.enemyStopRange;
+            velComp.speed = closestDistSq <= stopRange * stopRange ? 0 : BATTLE_CONFIG.enemyChaseSpeed;
         }
     }
 }

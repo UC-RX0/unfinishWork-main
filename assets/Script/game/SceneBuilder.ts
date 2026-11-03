@@ -88,10 +88,17 @@ export function createWeapon(world: IWorld, ownerId: number): number {
         interval: 1,
         loop: true,
     });
+    // 攻击动画：7 帧，间隔 0.04 秒 → 整段 0.28 秒。
+    //
+    // 【为什么是 0.04 而不是 0.08】
+    //   攻击动画播完才能再次攻击，所以"射速 = 1 / (帧数 × 间隔)"。
+    //   0.08 时一轮要 0.56 秒 —— 最终波 12 只怪根本打不完，
+    //   实测卡在第 9~10 波。
+    //   0.04 时一轮 0.28 秒，输出翻倍，同时第 2 帧出弹的节奏也更跟手。
     anim.configs.set(IState.Attack, {
         type: 'sequence',
         frames: resBridge.getFrames(PathEnum.Bullet1Attack),
-        interval: 0.08,
+        interval: 0.04,
         loop: false,
         events: { 2: 'spawn_bullet' },
     });

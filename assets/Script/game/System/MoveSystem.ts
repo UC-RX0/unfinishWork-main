@@ -1,8 +1,9 @@
 
 import { ISystem } from "../Base/ISystem";
-import { AnimComponent, BulletComponent, HealthComponent, PosComponent, VelocityComponent } from "../Component";
+import { AnimComponent, BulletComponent, HealthComponent, PlayerInputComponent, PosComponent, VelocityComponent } from "../Component";
 import { IState } from "../Component/AnimComponent";
 import { MonsterStateComponent } from "../Component/MonsterStateComponent";
+import { BATTLE_CONFIG } from "../Config/BattleConfig";
 import { lengthSq } from "../Math/MathUtil";
 import { ComponentClass } from "../tool/ComponentManager";
 //  移动系统
@@ -42,7 +43,21 @@ export class MoveSystem extends ISystem {
             if (posComponent && velocityComponent) {
                 posComponent.pos.y += velocityComponent.direction.y * velocityComponent.speed * dt;
                 posComponent.pos.x += velocityComponent.direction.x * velocityComponent.speed * dt;
+
+                // 玩家被限制在战场内。
+                // 不限制的话玩家能跑出战场（画面之外就看不见自己了），
+                // 也会破坏位置不变量。
+                //
+                // 边界来自 BATTLE_CONFIG 而不是 Canvas —— 逻辑读视图是帧同步的大忌。
+                if (this.world.hasComp(id, PlayerInputComponent)) {
+                    const halfW = BATTLE_CONFIG.fieldHalfWidth;
+                    const halfH = BATTLE_CONFIG.fieldHalfHeight;
+                    if (posComponent.pos.x > halfW) posComponent.pos.x = halfW;
+                    else if (posComponent.pos.x < -halfW) posComponent.pos.x = -halfW;
+                    if (posComponent.pos.y > halfH) posComponent.pos.y = halfH;
+                    else if (posComponent.pos.y < -halfH) posComponent.pos.y = -halfH;
+                }
             }
         }
     }
-} 
+}

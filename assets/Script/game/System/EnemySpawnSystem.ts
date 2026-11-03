@@ -76,12 +76,14 @@ export class EnemySpawnSystem extends ISystem {
         let entity = this.world.createEntity();
         let enemyComp: EnemyComponent = this.world.addComp(entity.id, EnemyComponent);
         this.world.addComp(entity.id, EnemyAIComponent);
-        this.world.addComp(entity.id, HitCooldownComponent);
+        // 攻击冷却按【帧】计数，帧同步下浮点秒数会漂
+        const hitCd = this.world.addComp(entity.id, HitCooldownComponent);
+        hitCd.cooldownFrames = BATTLE_CONFIG.enemyAttackCooldown * BATTLE_CONFIG.logicFps;
         let posComp: PosComponent = this.world.addComp(entity.id, PosComponent);
         let viewComp: ViewComponent = this.world.addComp(entity.id, ViewComponent);
         let velComp: VelocityComponent = this.world.addComp(entity.id, VelocityComponent);
         let healthComp: HealthComponent = this.world.addComp(entity.id, HealthComponent);
-        this.world.addComp(entity.id, DamageComponent).damage = BATTLE_CONFIG.bulletDamage;
+        this.world.addComp(entity.id, DamageComponent).damage = BATTLE_CONFIG.enemyDamage;
 
         // 怪物状态机：seed 由实体 id 派生，让每只怪物的呼吸/浮动节奏错开，
         // 同时保持确定性（不额外消耗随机数，避免打乱逻辑的随机序列）
@@ -136,6 +138,7 @@ export class EnemySpawnSystem extends ISystem {
         // 击杀分 = 类型基础分 × 波次分倍率
         enemyComp.score = Math.round(typeCfg.score * waveCfg.scorePct / 100);
         enemyComp.attackRange = BATTLE_CONFIG.enemyAttackRange;
+        enemyComp.stopRange = BATTLE_CONFIG.enemyStopRange;
 
         // 怪物表现完全由 MonsterVisualSystem 按状态计算，
         // 不再挂 AnimComponent —— 避免和状态机形成两套并行的"状态"

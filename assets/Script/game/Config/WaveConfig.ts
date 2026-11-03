@@ -64,14 +64,14 @@ export interface IWaveCfg {
 export const WAVE_TABLE: IWaveCfg[] = [
     { normal: 3, fast: 0, tank: 0, healthPct: 100, speedPct: 100, scorePct: 100 },
     { normal: 4, fast: 0, tank: 0, healthPct: 100, speedPct: 100, scorePct: 100 },
-    { normal: 5, fast: 0, tank: 0, healthPct: 120, speedPct: 105, scorePct: 110 },
-    { normal: 6, fast: 0, tank: 0, healthPct: 140, speedPct: 110, scorePct: 120 },
-    { normal: 6, fast: 1, tank: 0, healthPct: 160, speedPct: 115, scorePct: 130 },
-    { normal: 7, fast: 1, tank: 0, healthPct: 180, speedPct: 120, scorePct: 140 },
-    { normal: 6, fast: 2, tank: 1, healthPct: 200, speedPct: 125, scorePct: 150 },
-    { normal: 7, fast: 2, tank: 1, healthPct: 220, speedPct: 130, scorePct: 160 },
-    { normal: 7, fast: 3, tank: 2, healthPct: 250, speedPct: 135, scorePct: 180 },
-    { normal: 8, fast: 3, tank: 2, healthPct: 280, speedPct: 140, scorePct: 200 },
+    { normal: 5, fast: 0, tank: 0, healthPct: 115, speedPct: 102, scorePct: 110 },
+    { normal: 5, fast: 0, tank: 0, healthPct: 130, speedPct: 104, scorePct: 120 },
+    { normal: 6, fast: 0, tank: 0, healthPct: 145, speedPct: 106, scorePct: 130 },
+    { normal: 6, fast: 1, tank: 0, healthPct: 160, speedPct: 108, scorePct: 140 },
+    { normal: 6, fast: 1, tank: 1, healthPct: 175, speedPct: 110, scorePct: 150 },
+    { normal: 6, fast: 2, tank: 1, healthPct: 190, speedPct: 112, scorePct: 160 },
+    { normal: 7, fast: 2, tank: 1, healthPct: 205, speedPct: 114, scorePct: 180 },
+    { normal: 7, fast: 3, tank: 2, healthPct: 220, speedPct: 116, scorePct: 200 },
 ];
 
 /**总波次数*/

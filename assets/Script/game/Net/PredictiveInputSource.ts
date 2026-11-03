@@ -176,6 +176,18 @@ export class PredictiveInputSource implements IFrameInputSource {
         this.rollback.pruneBuffer(frame);
     }
 
+    /**
+     * @description 重置：清空输入状态
+     *
+     * 全局输入状态（inputMgr）必须一起清 —— 它是单例，
+     * 上一局的按键残留会让新一局的第一帧就带上旧输入。
+     */
+    public reset(): void {
+        this.buffer.clear();
+        this.sampled.clear();
+        inputMgr.reset();
+    }
+
     /**把服务端下发的帧包灌进缓冲，并交给回滚控制器比对*/
     public applyFrame(msg: { frame: number; inputs: any[] }): void {
         const inputs: FrameInput[] = [];

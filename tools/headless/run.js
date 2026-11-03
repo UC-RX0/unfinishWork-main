@@ -43,13 +43,13 @@ const { BattlePhase, BATTLE_PHASE_NAME } = require(path.join(BUILD, 'game/Compon
 const { ScoreComponent } = require(path.join(BUILD, 'game/Component/ScoreComponent.js'));
 const { BattleStateComponent } = require(path.join(BUILD, 'game/Component/BattleStateComponent.js'));
 
-const FRAMES = Number(process.argv[2] || 900);
+const FRAMES = Number(process.argv[2] || 3000);
 const MODE = process.argv[3] || 'combat';
 
 // 输入模式：combat 有脚本输入和射击，idle 完全没有输入
 if (MODE === 'combat') {
     ScriptedInputSystem.enabled = true;
-    ScriptedInputSystem.mode = 'orbit';
+    ScriptedInputSystem.mode = 'dodge';
 } else {
     ScriptedInputSystem.enabled = false;
     ScriptedInputSystem.mode = 'none';

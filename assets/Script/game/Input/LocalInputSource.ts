@@ -53,4 +53,15 @@ export class LocalInputSource implements IFrameInputSource {
     public prune(frame: number): void {
         this.buffer.pruneBefore(frame);
     }
+
+    /**
+     * @description 重置：清空输入缓冲与全局输入状态
+     *
+     * 全局输入状态（inputMgr）必须一起清 —— 它是单例，
+     * 上一局的按键残留会让新一局的第一帧就带上旧输入。
+     */
+    public reset(): void {
+        this.buffer.clear();
+        inputMgr.reset();
+    }
 }

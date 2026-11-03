@@ -73,6 +73,9 @@ class World implements IWorld {
         this.inputBuffer = new FrameInputBuffer();
         // 默认走本地采样；联机时调用 setInputSource 换成收包实现即可
         this.inputSource = new LocalInputSource(this.inputBuffer);
+        // 输入源必须重置：全局 InputManager 是单例，
+        // 上一局的按键残留会让新一局第一帧就带上旧输入（既破坏手感也破坏确定性）
+        this.inputSource.reset();
         this.playerCount = 1;
         this.stalled = false;
         // this.systemManager.init();

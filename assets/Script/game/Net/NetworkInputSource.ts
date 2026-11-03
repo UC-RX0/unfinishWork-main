@@ -58,6 +58,12 @@ export class NetworkInputSource implements IFrameInputSource {
         this.buffer.pruneBefore(frame);
     }
 
+    /**重置：清空输入缓冲与全局输入状态*/
+    public reset(): void {
+        this.buffer.clear();
+        inputMgr.reset();
+    }
+
     /**把服务端下发的帧包灌进缓冲*/
     public applyFrame(msg: { frame: number; inputs: any[] }): void {
         for (let i = 0; i < msg.inputs.length; i++) {

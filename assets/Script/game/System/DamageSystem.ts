@@ -44,7 +44,15 @@ export class DamageSystem extends ISystem {
                     const radius = DamageComponent.DEFAULT_RADIUS;
                     let distSq = distanceSq(dealerPos.pos.x, dealerPos.pos.y, targetPos.pos.x, targetPos.pos.y);
                     if (distSq <= radius * radius) {
-                        targetHp.health -= dealerDmg.damage;
+                        // 血量钳制到 0，不允许为负。
+                        //
+                        // 【为什么必须钳制】
+                        //   同一帧里可能有多次伤害结算（多颗子弹重叠、
+                        //   或者目标已经在结算中被标记死亡）。
+                        //   不钳制就会出现 -7 这种负血量 ——
+                        //   它会进入校验和、进入快照，是分叉的隐患，
+                        //   而且"血量为负"本身就是个非法状态。
+                        targetHp.health = Math.max(0, targetHp.health - dealerDmg.damage);
                         targetHp.flashTimer = 0.15;
                         // 标记本帧受击，MonsterStateSystem 会消费它并切到 Hit 状态
                         targetHp.hurtThisFrame = true;
@@ -69,14 +77,15 @@ export class DamageSystem extends ISystem {
                     let enemyComp = this.world.getComp(dealer, EnemyComponent);
                     let cooldown = this.world.getComp(dealer, HitCooldownComponent);
                     if (cooldown) {
-                        cooldown.timer += dt;
-                        if (cooldown.timer < cooldown.cooldown) continue;
-                        cooldown.timer = 0;
+                        cooldown.elapsedFrames++;
+                        if (cooldown.elapsedFrames < cooldown.cooldownFrames) continue;
+                        cooldown.elapsedFrames = 0;
                     }
-                    let range = BATTLE_CONFIG.enemyAttackRange;
+                    // 攻击范围用组件上的值（不同怪可以有不同范围）
+                    const range = enemyComp ? enemyComp.attackRange : BATTLE_CONFIG.enemyAttackRange;
                     let distSq = distanceSq(dealerPos.pos.x, dealerPos.pos.y, targetPos.pos.x, targetPos.pos.y);
                     if (distSq <= range * range) {
-                        targetHp.health -= dealerDmg.damage;
+                        targetHp.health = Math.max(0, targetHp.health - dealerDmg.damage);
                         console.log("player hit");
                         targetHp.flashTimer = 0.15;
                         let targetView = this.world.getComp(target, ViewComponent);
