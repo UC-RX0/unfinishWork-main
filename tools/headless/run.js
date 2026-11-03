@@ -38,6 +38,7 @@ const { createPlayers } = require(path.join(BUILD, 'game/SceneBuilder.js'));
 const { ScriptedInputSystem } = require(path.join(BUILD, 'game/System/ScriptedInputSystem.js'));
 const { MonsterStateStats } = require(path.join(BUILD, 'game/Config/MonsterState.js'));
 const { ChecksumSystem } = require(path.join(BUILD, 'game/System/ChecksumSystem.js'));
+const { GameTestRunner } = require(path.join(BUILD, 'game/Test/GameTestRunner.js'));
 
 const FRAMES = Number(process.argv[2] || 900);
 const MODE = process.argv[3] || 'combat';
@@ -50,6 +51,9 @@ if (MODE === 'combat') {
     ScriptedInputSystem.enabled = false;
     ScriptedInputSystem.mode = 'none';
 }
+
+// 运行时不变量断言：位置越界、血量异常、速度没归一化、实体泄漏
+GameTestRunner.enabled = true;
 
 world.init();
 // 建实体用和编辑器完全相同的代码路径，保证两边行为一致
@@ -68,13 +72,18 @@ const result = {
     checksum: ChecksumSystem.lastHex,
     states: MonsterStateStats.summary(),
     enterCount: MonsterStateStats.enterCount.slice(),
+    assertions: GameTestRunner.violations,
 };
 
 console.log(JSON.stringify(result, null, 2));
+
+if (result.assertions > 0) {
+    console.log(`❌ 运行时不变量违规 ${result.assertions} 次`);
+}
 
 // 四态断言：Idle/Move/Attack/Hit/Dead 都必须走到过
 if (MODE === 'combat') {
     const all = result.enterCount.every((c) => c > 0);
     console.log(all ? '✅ 四态全部覆盖' : '❌ 有状态未覆盖');
-    process.exit(all ? 0 : 1);
+    process.exit(all && result.assertions === 0 ? 0 : 1);
 }

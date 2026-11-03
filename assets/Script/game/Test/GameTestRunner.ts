@@ -35,8 +35,8 @@ export class GameTestRunner extends ISystem {
     /**实体数量上限（超过就认为有泄漏）*/
     public static maxEntityCount: number = 500;
 
-    /**累计违规次数*/
-    private violations: number = 0;
+    /**累计违规次数（静态，方便 headless 测试直接读取）*/
+    public static violations: number = 0;
     /**已输出过的违规指纹，避免同一条刷屏*/
     private seen: { [key: string]: boolean } = {};
     /**探针节点*/
@@ -44,7 +44,7 @@ export class GameTestRunner extends ISystem {
 
     init(): void {
         this.enable = GameTestRunner.enabled;
-        this.violations = 0;
+        GameTestRunner.violations = 0;
         this.seen = {};
     }
 
@@ -58,7 +58,7 @@ export class GameTestRunner extends ISystem {
         this.checkVelocity(frame);
         this.checkEntityCount(frame);
 
-        if (this.violations > 0) {
+        if (GameTestRunner.violations > 0) {
             this.flushProbe();
         }
     }
@@ -138,7 +138,7 @@ export class GameTestRunner extends ISystem {
      * key 只用来去重，同一类问题同一实体只报一次，避免 60 帧刷 60 条。
      */
     private fail(frame: number, key: string, message: string): void {
-        this.violations++;
+        GameTestRunner.violations++;
         if (this.seen[key]) return;
         this.seen[key] = true;
         console.error(`[断言失败] frame=${frame} ${message}`);
@@ -146,7 +146,7 @@ export class GameTestRunner extends ISystem {
 
     /**把汇总写进节点名 —— 现有外部工具（MCP / 自动化）读节点比读日志可靠*/
     private flushProbe(): void {
-        const label = `ASSERT#FAIL#${this.violations}#frame=${this.world.frame}`;
+        const label = `ASSERT#FAIL#${GameTestRunner.violations}#frame=${this.world.frame}`;
         if (this.probe && this.probe.isValid) {
             this.probe.name = label;
             return;
@@ -159,7 +159,7 @@ export class GameTestRunner extends ISystem {
         if (!guide) return;
         this.probe = new Node(label);
         this.probe.parent = guide;
-        console.error(`[断言] 共 ${this.violations} 次违规，详情见上方日志`);
+        console.error(`[断言] 共 ${GameTestRunner.violations} 次违规，详情见上方日志`);
     }
     //#endregion
 }

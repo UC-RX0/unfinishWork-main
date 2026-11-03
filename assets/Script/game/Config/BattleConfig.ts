@@ -59,6 +59,11 @@ export const BATTLE_CONFIG = {
     bulletDamage: 10,
     /**子弹命中判定半径*/
     bulletHitRadius: 70,
+    /**
+     * 子弹飞出多远就回收（超出战场边界这么多像素）。
+     * 必须小于运行时不变量断言的余量，否则子弹会处在"没被回收、却已越界"的区间里。
+     */
+    bulletOutMargin: 50,
     //#endregion
 
     //#region 确定性
