@@ -75,11 +75,11 @@ export const GAME_ASSETS: IAssetDecl[] = [
     { key: PathEnum.Bullet1, name: UIEnum.Bullet2, type: Prefab, prewarm: 32 },
     { key: PathEnum.Enemy, name: UIEnum.Enemy, type: Prefab },
 
-    //动画片段：目前怪物逻辑仍走空序列帧配置，此处先纳入预加载清单，
-    //待 AnimPlaySystem 支持把 clip 注入 Animation.clips 后即可直接切换使用
+    //动画片段：挂在怪物的"表现层子节点"上播放（clip 是绝对 position 轨道，
+    //直接播在根节点会把怪物瞬移到原点）
     { key: "", name: ClipEnum.EnemyIdle, type: AnimationClip },
     { key: "", name: ClipEnum.EnemyAttack, type: AnimationClip },
-    { key: "", name: ClipEnum.EnemyDead, type: AnimationClip },
+    { key: "", name: ClipEnum.EnemyHit, type: AnimationClip },
 ];
 //#endregion
 

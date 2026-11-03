@@ -23,10 +23,16 @@ export const BATTLE_CONFIG = {
     //#endregion
 
     //#region 战场
-    /**战场半宽（像素）。替代原先从 Canvas 读取的宽度/2*/
-    fieldHalfWidth: 640,
-    /**战场半高（像素）。替代原先从 Canvas 读取的高度/2*/
-    fieldHalfHeight: 360,
+    /**
+     * 战场半宽（像素）。替代原先从 Canvas 读取的宽度/2。
+     *
+     * 刻意比屏幕（1280x720 → 半宽 640）大：
+     * 战场是一个 1600x900 的世界，摄像机跟着玩家走。
+     * 如果战场正好等于屏幕，玩家会跑到画面外看不见自己。
+     */
+    fieldHalfWidth: 800,
+    /**战场半高（像素）*/
+    fieldHalfHeight: 450,
     //#endregion
 
     //#region 刷怪
@@ -34,6 +40,24 @@ export const BATTLE_CONFIG = {
     spawnIntervalFrames: 60,
     /**刷怪边距：在边界外多少像素生成，避免凭空出现在屏幕内*/
     spawnMargin: 40,
+    //#endregion
+
+    //#region 对局流程
+    /**准备阶段时长（逻辑帧）：开局给玩家一点走位时间*/
+    prepareFrames: 90,
+    /**波间休息时长（逻辑帧）*/
+    restFrames: 120,
+    /**
+     * 休整回血比例（最大血量的 0~1）。
+     * 0.1 = 回 10% 血。给容错空间，但不足以鼓励无脑龟缩。
+     */
+    restHealRatio: 0.1,
+    /**每波刷怪间隔的递减帧数（波次越高刷得越快）*/
+    spawnIntervalDecay: 2,
+    /**刷怪间隔下限（逻辑帧）*/
+    minSpawnIntervalFrames: 30,
+    /**连击持续时间（逻辑帧），超时断连击*/
+    comboFrames: 180,
     //#endregion
 
     //#region 玩家

@@ -1,5 +1,7 @@
+import { Animation, Node } from "cc";
 import { ISystem } from "../Base/ISystem";
 import { DamageComponent, PosComponent, VelocityComponent, ViewComponent } from "../Component";
+import { BattleStateComponent } from "../Component/BattleStateComponent";
 import { EnemyAIComponent } from "../Component/EnemyAIComponent";
 import { EnemyComponent } from "../Component/EnemyComponent";
 import { HealthComponent } from "../Component/HealthComponent";
@@ -7,6 +9,7 @@ import { HitCooldownComponent } from "../Component/HitCooldownComponent";
 import { MonsterStateComponent } from "../Component/MonsterStateComponent";
 import { BATTLE_CONFIG } from "../Config/BattleConfig";
 import { MonsterState, MonsterStateStats } from "../Config/MonsterState";
+import { EnemyType, ENEMY_TYPE_CFG, WAVE_TABLE } from "../Config/WaveConfig";
 import { setVec2 } from "../Math/MathUtil";
 import { logicRng } from "../Math/PRNG";
 import { resBridge } from "../../core/resource/ResBridge";
@@ -22,45 +25,54 @@ import { ComponentClass } from "../tool/ComponentManager";
  *   2. 三处 Math.random 全部换成 logicRng，seed 固定/由服务端下发
  *   3. 刷怪节拍改成"帧号调度"而不是"秒数累加"
  *      浮点累加在长时间运行后会有微小误差，帧号调度是纯整数，永远不会漂
+ *
+ * 波次改造：
+ *   刷什么、刷几只由 WaveSystem 决定（写在 BattleStateComponent.spawnRequest 里），
+ *   本系统只负责"把那只怪建出来"。职责分开后，调波次节奏不需要动这里。
  */
 export class EnemySpawnSystem extends ISystem {
     requiredComponents: ComponentClass<any>[] = [];
 
-    /**下一次允许刷怪的逻辑帧号*/
-    private nextSpawnFrame: number = 0;
-
     init(): void {
         this.enable = true;
-        this.nextSpawnFrame = 0;
     }
 
     update(dt: number): void {
-        const frame = this.world.frame;
-        if (frame < this.nextSpawnFrame) return;
-        this.nextSpawnFrame = frame + BATTLE_CONFIG.spawnIntervalFrames;
-        this.spawnOneEnemy();
+        const state = this.getBattleState();
+        if (!state) return;
+
+        // 没有刷怪指令就什么都不做
+        if (state.spawnRequest < 0) return;
+
+        const type = state.spawnRequest;
+        // 立刻清零：本帧只消费一次
+        state.spawnRequest = -1;
+
+        this.spawnOneEnemy(type, state.wave);
+    }
+
+    /**取对局导演实体（全局唯一一个）*/
+    private getBattleState(): BattleStateComponent | null {
+        const ids = this.world.query(BattleStateComponent);
+        if (ids.length === 0) return null;
+        return this.world.getComp(ids[0], BattleStateComponent);
     }
 
     /**
-     * 刷怪计时器属于"不属于任何组件"的系统私有状态，
-     * 不导出的话回滚之后它还停在上一个时间点，重演结果就会和原来不一致。
+     * @description 生成一只怪物
+     * @param type 怪物类型
+     * @param wave 当前波次（决定血量/速度/积分倍率）
      */
-    public captureState(): any {
-        return { nextSpawnFrame: this.nextSpawnFrame };
-    }
-
-    public restoreState(data: any): void {
-        if (!data) return;
-        this.nextSpawnFrame = data.nextSpawnFrame;
-    }
-
-    private spawnOneEnemy(): void {
+    private spawnOneEnemy(type: EnemyType, wave: number): void {
         // 1..4 对应 上右下左
         const side = logicRng.rangeInt(1, 5);
-        this.createEnemy(side);
+        this.createEnemy(side, type, wave);
     }
 
-    private createEnemy(side: number) {
+    private createEnemy(side: number, type: EnemyType, wave: number) {
+        const waveCfg = WAVE_TABLE[wave - 1];
+        const typeCfg = ENEMY_TYPE_CFG[type];
+
         let entity = this.world.createEntity();
         let enemyComp: EnemyComponent = this.world.addComp(entity.id, EnemyComponent);
         this.world.addComp(entity.id, EnemyAIComponent);
@@ -104,19 +116,42 @@ export class EnemySpawnSystem extends ISystem {
                 break;
         }
 
-        // 基础属性
+        // 基础属性：波次倍率 × 类型倍率
         viewComp.node = resBridge.spawn(PathEnum.Enemy, UIEnum.Enemy);
         viewComp.node.parent = uiMgr.getLayer(LayerEnum.GameLayer);
-        healthComp.health = BATTLE_CONFIG.enemyHealth;
-        healthComp.maxHealth = BATTLE_CONFIG.enemyHealth;
-        velComp.speed = BATTLE_CONFIG.enemyChaseSpeed;
+        // clip 动画播在子节点上：clip 里的 position 是绝对轨道，
+        // 直接播在根节点会把怪物瞬移到原点
+        viewComp.fxNode = this.createFxNode(viewComp.node);
+        healthComp.health = Math.round(BATTLE_CONFIG.enemyHealth * waveCfg.healthPct / 100 * typeCfg.healthPct / 100);
+        healthComp.maxHealth = healthComp.health;
+        velComp.speed = BATTLE_CONFIG.enemyChaseSpeed * waveCfg.speedPct / 100 * typeCfg.speedPct / 100;
         setVec2(posComp.pos, x, y);
         viewComp.node.setPosition(x, y, 0);
-        enemyComp.wave = 0;
-        enemyComp.score = 10;
+        enemyComp.wave = wave;
+        enemyComp.type = type;
+        enemyComp.scale = typeCfg.scalePct / 100;
+        // 击杀分 = 类型基础分 × 波次分倍率
+        enemyComp.score = Math.round(typeCfg.score * waveCfg.scorePct / 100);
         enemyComp.attackRange = BATTLE_CONFIG.enemyAttackRange;
 
         // 怪物表现完全由 MonsterVisualSystem 按状态计算，
         // 不再挂 AnimComponent —— 避免和状态机形成两套并行的"状态"
+    }
+
+    /**
+     * @description 创建表现层子节点
+     *
+     * 这个子节点位于原点，专门用来承载 clip 动画。
+     * clip 的 position/scale 轨道写的是绝对值，作用在子节点上就变成了
+     * 相对根节点的偏移 —— 根节点的位置仍然由逻辑层独占控制。
+     *
+     * @param root 实体根节点
+     * @returns 表现层子节点
+     */
+    private createFxNode(root: Node): Node {
+        const fx = new Node("Fx");
+        fx.parent = root;
+        fx.setPosition(0, 0, 0);
+        return fx;
     }
 }

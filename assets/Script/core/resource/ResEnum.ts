@@ -56,12 +56,17 @@ export enum UIEnum {
 /**
  * @description 动画片段名称
  * 对应 resources 根目录下的 .anim 文件，key 为空串时 url 即为文件名本身
+ *
+ * 注意：这三个 clip 都是【绝对 position / scale 轨道】，
+ * 直接播在实体的根节点上会把实体瞬移到原点。
+ * 必须播在一个位于原点、作为子节点的"表现层节点"上，
+ * 让 clip 的位移成为相对根节点的偏移。
  */
 export enum ClipEnum {
-    /**怪物待机*/
+    /**怪物待机（缩放呼吸，1.5 秒循环）*/
     EnemyIdle = "idle",
-    /**怪物攻击*/
+    /**怪物攻击（前冲 + 膨胀，0.25 秒）*/
     EnemyAttack = "Attack",
-    /**怪物死亡（文件名是 Heart）*/
-    EnemyDead = "Heart",
+    /**怪物受击（心跳抖动 + 变色，0.167 秒）*/
+    EnemyHit = "Heart",
 }

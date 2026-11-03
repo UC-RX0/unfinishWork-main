@@ -12,3 +12,5 @@ export { HealthComponent } from "./HealthComponent";
 export { DamageComponent } from "./DamageComponent";
 export { HitCooldownComponent } from "./HitCooldownComponent";
 export { MonsterStateComponent } from "./MonsterStateComponent";
+export { BattleStateComponent } from "./BattleStateComponent";
+export { ScoreComponent } from "./ScoreComponent";

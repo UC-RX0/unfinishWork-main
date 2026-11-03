@@ -1,4 +1,5 @@
 import { ISystem } from "../Base/ISystem";
+import { BattleStateComponent } from "../Component/BattleStateComponent";
 import { PlayerInputComponent, VelocityComponent } from "../Component";
 import { BATTLE_CONFIG } from "../Config/BattleConfig";
 import { INPUT_SCALE } from "../Input/FrameInput";
@@ -28,6 +29,19 @@ export class InputSystem extends ISystem {
         const frame = this.world.frame;
         const entityIds = this.world.query(...this.requiredComponents);
 
+        // 结算后锁定操作：世界照常推进（联机时不能停，否则锁步会卡死），
+        // 但玩家不再能操作。
+        if (this.isSettled()) {
+            for (let i = 0; i < entityIds.length; i++) {
+                const vel = this.world.getComp(entityIds[i], VelocityComponent);
+                if (vel) {
+                    setVec2(vel.direction, 0, 0);
+                    vel.speed = 0;
+                }
+            }
+            return;
+        }
+
         for (let i = 0; i < entityIds.length; i++) {
             const id = entityIds[i];
             const playerInput = this.world.getComp(id, PlayerInputComponent);
@@ -40,5 +54,13 @@ export class InputSystem extends ISystem {
             setVec2(vel.direction, input.dirX / INPUT_SCALE, input.dirY / INPUT_SCALE);
             vel.speed = input.speed / INPUT_SCALE * BATTLE_CONFIG.playerSpeed;
         }
+    }
+
+    /**对局是否已结算*/
+    private isSettled(): boolean {
+        const ids = this.world.query(BattleStateComponent);
+        if (ids.length === 0) return false;
+        const state = this.world.getComp(ids[0], BattleStateComponent);
+        return !!state && state.settled;
     }
 }

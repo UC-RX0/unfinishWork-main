@@ -1,8 +1,8 @@
 import { Color, Sprite } from "cc";
 import { ISystem } from "../Base/ISystem";
-import { PosComponent, ViewComponent } from "../Component";
+import { EnemyComponent, PosComponent, ViewComponent } from "../Component";
 import { MonsterStateComponent } from "../Component/MonsterStateComponent";
-import { evalMonsterVisual } from "../Config/MonsterState";
+import { evalMonsterVisual, isClipDriven } from "../Config/MonsterState";
 import { ComponentClass } from "../tool/ComponentManager";
 
 /**复用对象，避免每帧 new 造成的 GC 抖动*/
@@ -42,15 +42,31 @@ export class MonsterVisualSystem extends ISystem {
             const node = view.node;
             if (!node) continue;
 
+            // 怪物类型缩放（快速怪更小、高血怪更大）
+            const enemy = this.world.getComp(id, EnemyComponent);
+            const typeScale = enemy ? enemy.scale : 1;
+
             // 帧龄：进入当前状态后经过了多少逻辑帧
             const t = frame - st.enterFrame;
             const out = evalMonsterVisual(st.state, t, st.seed, st.facing);
+
+            // clip 接管的状态：位移与缩放由 clip 在子节点上负责，
+            // 这里只把逻辑位置写到根节点，避免双重缩放/双重位移
+            if (isClipDriven(st.state)) {
+                node.setPosition(pos.pos.x, pos.pos.y, 0);
+                // 缩放只保留朝向翻转与类型缩放，尺寸动画交给 clip
+                node.setScale(st.facing * typeScale, typeScale, 1);
+                node.angle = 0;
+                this.applyTint(id, node, out.tint);
+                continue;
+            }
 
             // 逻辑位置 + 表现偏移（逻辑层是纯数据向量，这里转成引擎坐标）
             node.setPosition(pos.pos.x + out.offsetX, pos.pos.y + out.offsetY, 0);
 
             // 朝向决定水平翻转，缩放由表现求值给出
-            node.setScale(out.scale * st.facing, out.scale, 1);
+            const s = out.scale * typeScale;
+            node.setScale(s * st.facing, s, 1);
 
             node.angle = out.angle;
 

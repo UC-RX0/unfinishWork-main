@@ -1,6 +1,6 @@
 import { Color, Sprite } from "cc";
 import { ISystem } from "../Base/ISystem";
-import { AnimComponent, BulletComponent, PlayerInputComponent, PosComponent, VelocityComponent, ViewComponent } from "../Component";
+import { AnimComponent, BulletComponent, OwnerComponent, PlayerInputComponent, PosComponent, VelocityComponent, ViewComponent } from "../Component";
 import { IState } from "../Component/AnimComponent";
 import { DamageComponent } from "../Component/DamageComponent";
 import { EnemyAIComponent } from "../Component/EnemyAIComponent";
@@ -48,6 +48,11 @@ export class DamageSystem extends ISystem {
                         targetHp.flashTimer = 0.15;
                         // 标记本帧受击，MonsterStateSystem 会消费它并切到 Hit 状态
                         targetHp.hurtThisFrame = true;
+                        // 记录击杀归属：顺着子弹找到主人（玩家），记到血量组件上。
+                        // 存玩家而不是子弹 —— 子弹命中后很快被回收，等计分系统查时
+                        // 子弹实体可能已经没了。
+                        const bulletOwner = this.world.getComp(dealer, OwnerComponent);
+                        if (bulletOwner) targetHp.lastKillerId = bulletOwner.ownerId;
                         let targetView = this.world.getComp(target, ViewComponent);
                         if (targetView && targetView.node) {
                             let sprite = targetView.node.getComponent(Sprite);

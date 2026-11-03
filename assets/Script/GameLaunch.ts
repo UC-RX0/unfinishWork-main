@@ -1,5 +1,5 @@
-import { _decorator, Component } from 'cc';
-import { uiMgr } from './core/manager/UIManager';
+import { _decorator, Component, Node } from 'cc';
+import { uiMgr, LayerEnum } from './core/manager/UIManager';
 import { resBridge } from './core/resource/ResBridge';
 import type { IBootProgress } from './core/resource/ResBridge';
 import { BATTLE_CONFIG } from './game/Config/BattleConfig';
@@ -7,9 +7,12 @@ import { logicRng } from './game/Math/PRNG';
 import { NetClient } from './game/Net/NetClient';
 import { NetworkInputSource } from './game/Net/NetworkInputSource';
 import type { WelcomeMsg } from './game/Net/Protocol';
-import { createPlayers } from './game/SceneBuilder';
+import { createBattleDirector, createPlayers } from './game/SceneBuilder';
 import { ChecksumSystem, MonsterStateProbeSystem, ScriptedInputSystem } from './game/System';
 import { world } from './game/World';
+import { BattleHud } from './UI/BattleHud';
+import { PresentationRig } from './UI/PresentationRig';
+import { PlayerInputComponent, ViewComponent } from './game/Component';
 
 const { ccclass, property } = _decorator;
 
@@ -98,9 +101,55 @@ export class GameLaunch extends Component {
         }
 
         this.buildScene();
+        this.setupHud();
+        this.setupPresentation();
 
         this.isInit = true;
         console.log("[GameLaunch] 世界已启动，ECS 进入同步运行期");
+    }
+
+    /**
+     * @description 装配表现层（相机跟随 / 地图）
+     *
+     * 相机跟的是玩家 0 的节点 —— 联机时也用玩家 0 做基准，
+     * 这样两端相机会朝同一个方向，视觉上不会各看各的。
+     */
+    private setupPresentation() {
+        const layer = uiMgr.getLayer(LayerEnum.GuideLayer);
+        if (!layer) return;
+
+        const rigNode = new Node("PresentationRig");
+        rigNode.parent = layer;
+        const rig = rigNode.addComponent(PresentationRig);
+
+        // 玩家节点：相机要跟随它
+        const playerIds = world.query(PlayerInputComponent, ViewComponent);
+        if (playerIds.length > 0) {
+            const view = world.getComp(playerIds[0], ViewComponent);
+            if (view && view.node) {
+                // 下一帧再设：PresentationRig.start() 还没跑，CameraFollow 还没挂上
+                this.scheduleOnce(() => {
+                    rig.setFollowTarget(view.node);
+                }, 0);
+            }
+        }
+    }
+
+    /**
+     * @description 挂载 HUD
+     *
+     * HUD 用代码动态创建（工程内没有 UI 预制体），
+     * 挂在 GuideLayer 上 —— 提示层永远在最上面，不会被战斗画面盖住。
+     */
+    private setupHud() {
+        const layer = uiMgr.getLayer(LayerEnum.GuideLayer);
+        if (!layer) {
+            console.error("[GameLaunch] GuideLayer 不存在，HUD 无法挂载");
+            return;
+        }
+        const hudNode = new Node("BattleHud");
+        hudNode.parent = layer;
+        hudNode.addComponent(BattleHud);
     }
 
     /**把网络输入源接到 World：此后所有输入都来自服务端帧包*/
@@ -138,6 +187,7 @@ export class GameLaunch extends Component {
     private buildScene() {
         // 建实体逻辑放在 SceneBuilder，编辑器和 headless 测试共用同一套，
         // 否则两边行为不一致，headless 测出来的结论对编辑器就没意义
+        createBattleDirector(world);
         createPlayers(world, world.getPlayerCount());
     }
 

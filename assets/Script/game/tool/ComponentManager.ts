@@ -93,6 +93,23 @@ export class ComponentManager {
         }
         return result;
     }
+    /**
+     * 查询所有【拥有任意组件】的实体
+     *
+     * 与 query() 的区别：query 必须指定组件类型，拿不到"裸实体"。
+     * 重开一局时需要销毁所有实体，这时不知道对方有哪些组件，
+     * 所以需要这个"全量"入口。
+     *
+     * 返回顺序同样是 entitySignature 的插入顺序。
+     */
+    queryAll(): number[] {
+        const result: number[] = [];
+        this.entitySignature.forEach((_, entityId) => {
+            result.push(entityId);
+        });
+        return result;
+    }
+
     //这是检索ComponentArrary的复合方法
     hasComponent<T extends IComponent>(entityId: number, component: ComponentClass<T>): boolean {
         let componentArray = this.componentArrays.get(component);

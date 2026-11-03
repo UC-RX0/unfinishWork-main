@@ -34,11 +34,14 @@ Module._load = function (request, parent, isMain) {
 
 const BUILD = path.resolve(__dirname, '../../temp/headless-build/assets/Script');
 const { world } = require(path.join(BUILD, 'game/World.js'));
-const { createPlayers } = require(path.join(BUILD, 'game/SceneBuilder.js'));
+const { createBattleDirector, createPlayers } = require(path.join(BUILD, 'game/SceneBuilder.js'));
 const { ScriptedInputSystem } = require(path.join(BUILD, 'game/System/ScriptedInputSystem.js'));
 const { MonsterStateStats } = require(path.join(BUILD, 'game/Config/MonsterState.js'));
 const { ChecksumSystem } = require(path.join(BUILD, 'game/System/ChecksumSystem.js'));
 const { GameTestRunner } = require(path.join(BUILD, 'game/Test/GameTestRunner.js'));
+const { BattlePhase, BATTLE_PHASE_NAME } = require(path.join(BUILD, 'game/Component/BattleStateComponent.js'));
+const { ScoreComponent } = require(path.join(BUILD, 'game/Component/ScoreComponent.js'));
+const { BattleStateComponent } = require(path.join(BUILD, 'game/Component/BattleStateComponent.js'));
 
 const FRAMES = Number(process.argv[2] || 900);
 const MODE = process.argv[3] || 'combat';
@@ -57,6 +60,7 @@ GameTestRunner.enabled = true;
 
 world.init();
 // 建实体用和编辑器完全相同的代码路径，保证两边行为一致
+createBattleDirector(world);
 createPlayers(world, 1);
 
 const DT = 1 / 60;
@@ -66,6 +70,12 @@ while (world.frame < FRAMES && guard < FRAMES * 8) {
     guard++;
 }
 
+// 读取对局状态
+const stateIds = world.query(BattleStateComponent);
+const battle = stateIds.length > 0 ? world.getComp(stateIds[0], BattleStateComponent) : null;
+const scoreIds = world.query(ScoreComponent);
+const score = scoreIds.length > 0 ? world.getComp(scoreIds[0], ScoreComponent) : null;
+
 const result = {
     mode: MODE,
     frames: world.frame,
@@ -73,6 +83,16 @@ const result = {
     states: MonsterStateStats.summary(),
     enterCount: MonsterStateStats.enterCount.slice(),
     assertions: GameTestRunner.violations,
+    battle: battle ? {
+        phase: BATTLE_PHASE_NAME[battle.phase],
+        wave: battle.wave,
+        waveTotal: battle.totalWaves,
+        spawned: battle.waveSpawned,
+        waveSize: battle.waveTotal,
+        kills: battle.kills,
+        settled: battle.settled,
+    } : null,
+    score: score ? { score: score.score, kills: score.kills, combo: score.combo } : null,
 };
 
 console.log(JSON.stringify(result, null, 2));
@@ -85,5 +105,14 @@ if (result.assertions > 0) {
 if (MODE === 'combat') {
     const all = result.enterCount.every((c) => c > 0);
     console.log(all ? '✅ 四态全部覆盖' : '❌ 有状态未覆盖');
-    process.exit(all && result.assertions === 0 ? 0 : 1);
+
+    // 计分断言：打了这么多帧不可能一个都没杀掉
+    const scored = result.score && result.score.kills > 0 && result.score.score > 0;
+    console.log(scored ? `✅ 计分正常：${result.score.kills} 杀 / ${result.score.score} 分` : '❌ 计分异常');
+
+    // 波次断言：应该已经进入战斗阶段
+    const inWave = result.battle && result.battle.wave >= 1;
+    console.log(inWave ? `✅ 波次推进：第 ${result.battle.wave} 波` : '❌ 波次未推进');
+
+    process.exit(all && result.assertions === 0 && scored && inWave ? 0 : 1);
 }

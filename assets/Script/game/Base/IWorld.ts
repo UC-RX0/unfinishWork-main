@@ -13,6 +13,14 @@ export interface IWorld {
     readonly frame: number;
     /**当前是否为联机模式（联机时禁用与回滚冲突的手工自检）*/
     readonly networkMode: boolean;
+    //#region 生命周期
+    /**初始化世界（重建各管理器、注册系统）*/
+    init(): void;
+    /**销毁世界*/
+    onDestroy(): void;
+    /**当前参与同步的玩家数量*/
+    getPlayerCount(): number;
+    //#endregion
     //#region 输入
     /**
      * 取第 frame 帧指定玩家的输入。
@@ -48,6 +56,8 @@ export interface IWorld {
     hasComp(entityId: number, componentClass: new (...args: any[]) => any): boolean
     /**查询实体id列表*/
     query(...componentClasses: Function[]): number[];
+    /**查询所有实体 id（重开一局时用来销毁全部实体）*/
+    getAllEntityIds(): number[];
     /**获取组件*/
     getComp<T>(entityId: number, componentClass: new (...args: any[]) => T): T | undefined;
     //#endregion

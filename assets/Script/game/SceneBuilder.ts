@@ -2,10 +2,11 @@ import { Vec3 } from "cc";
 import { LayerEnum, PathEnum, UIEnum, uiMgr } from "../core/manager/UIManager";
 import { resBridge } from "../core/resource/ResBridge";
 import { IState } from "./Component/AnimComponent";
-import { AnimComponent, HealthComponent, OwnerComponent, PlayerInputComponent, PosComponent, VelocityComponent, ViewComponent, WeaponComponent } from "./Component";
+import { AnimComponent, BattleStateComponent, HealthComponent, OwnerComponent, PlayerInputComponent, PosComponent, ScoreComponent, VelocityComponent, ViewComponent, WeaponComponent } from "./Component";
 import { BATTLE_CONFIG } from "./Config/BattleConfig";
 import { setVec2 } from "./Math/MathUtil";
 import { IWorld } from "./Base/IWorld";
+import { BattlePhase } from "./Component/BattleStateComponent";
 
 /**
  * @description 场景实体构建
@@ -39,6 +40,9 @@ export function createPlayer(world: IWorld, playerIndex: number): number {
     const health = world.addComp(id, HealthComponent);
     health.health = BATTLE_CONFIG.playerHealth;
     health.maxHealth = BATTLE_CONFIG.playerHealth;
+
+    // 战绩组件：击杀与积分
+    world.addComp(id, ScoreComponent);
 
     // 玩家动画：idle + walk
     const anim: AnimComponent = world.addComp(id, AnimComponent);
@@ -111,4 +115,21 @@ export function createPlayers(world: IWorld, count: number): void {
         const actorId = createPlayer(world, i);
         createWeapon(world, actorId);
     }
+}
+
+/**
+ * @description 创建对局导演实体
+ *
+ * 全局唯一一个，持有 BattleStateComponent —— 波次、阶段、胜负的事实来源。
+ * 它没有 ViewComponent，因为对局状态不直接对应画面（画面由 HUD 读它渲染）。
+ *
+ * 初始状态是"准备阶段"，倒计时结束后进入第一波。
+ */
+export function createBattleDirector(world: IWorld): number {
+    const { id } = world.createEntity();
+    const state = world.addComp(id, BattleStateComponent);
+    state.phase = BattlePhase.Prepare;
+    state.phaseTimer = BATTLE_CONFIG.prepareFrames;
+    state.wave = 0;
+    return id;
 }

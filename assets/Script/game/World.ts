@@ -6,8 +6,8 @@ import { ComponentManager, SystemManager } from './tool';
 import { ISystem } from './Base/ISystem';
 import { ComponentClass } from './tool/ComponentManager';
 import { IComponent } from './Base/IComponent';
-import { AnimComponent, BulletComponent, DamageComponent, EnemyAIComponent, EnemyComponent, HealthComponent, OwnerComponent, PlayerInputComponent, PosComponent, VelocityComponent, ViewComponent, WeaponComponent } from './Component';
-import { AISystem, AnimRenderSystem, AnimTickSystem, BulletDirSystem, BulletSystem, ChecksumSystem, DamageSystem, DeathSystem, EnemySpawnSystem, FaceDirectionSystem, InputSystem, MonsterStateProbeSystem, MonsterStateSystem, MonsterVisualSystem, MoveSystem, PosSynSystem, ScriptedInputSystem, SnapshotTestSystem, WeaponAimSystem, WeaponViewSystem, WeaponSystem } from './System';
+import { AnimComponent, BattleStateComponent, BulletComponent, DamageComponent, EnemyAIComponent, EnemyComponent, HealthComponent, OwnerComponent, PlayerInputComponent, PosComponent, ScoreComponent, VelocityComponent, ViewComponent, WeaponComponent } from './Component';
+import { AISystem, AnimRenderSystem, AnimTickSystem, BulletDirSystem, BulletSystem, ChecksumSystem, DamageSystem, DeathSystem, EnemySpawnSystem, FaceDirectionSystem, InputSystem, MonsterClipSystem, MonsterStateProbeSystem, MonsterStateSystem, MonsterVisualSystem, MoveSystem, PosSynSystem, ScoreSystem, ScriptedInputSystem, SnapshotTestSystem, WaveSystem, WeaponAimSystem, WeaponViewSystem, WeaponSystem } from './System';
 import { MonsterStateComponent } from './Component/MonsterStateComponent';
 import { FixedStepClock } from './tool/FixedStepClock';
 import { GameTestRunner } from './Test/GameTestRunner';
@@ -243,10 +243,14 @@ class World implements IWorld {
         this.registerComponent(HealthComponent);
         this.registerComponent(DamageComponent);
         this.registerComponent(MonsterStateComponent);
+        this.registerComponent(BattleStateComponent);
+        this.registerComponent(ScoreComponent);
         //#region 逻辑段：只读写组件数据，不碰任何节点
         // 脚本输入要在 InputSystem 之前注入，否则本帧采到的是上一帧的输入
         this.registerSystem(new ScriptedInputSystem(), -1);
         this.registerSystem(new InputSystem(), 0);
+        // 对局导演要排在刷怪之前：它决定"什么时候刷、刷什么"
+        this.registerSystem(new WaveSystem(), 3);
         this.registerSystem(new EnemySpawnSystem(), 5);
         // 武器朝向要在 WeaponSystem 之前算好，本帧射击就能用上本帧方向
         this.registerSystem(new WeaponAimSystem(), 10);
@@ -257,6 +261,8 @@ class World implements IWorld {
         this.registerSystem(new DamageSystem(), 120);
         // 状态机必须排在伤害结算之后：DamageSystem 置 hurtThisFrame，状态机当帧消费
         this.registerSystem(new MonsterStateSystem(), 125);
+        // 计分要在状态机之后（怪物得先进入 Dead 状态），但要在死亡销毁之前
+        this.registerSystem(new ScoreSystem(), 128);
         this.registerSystem(new DeathSystem(), 130);
         // 动画推进属于逻辑：frameIndex / currentTrigger 会影响射击等玩法时序
         this.registerSystem(new AnimTickSystem(), 140);
@@ -267,6 +273,8 @@ class World implements IWorld {
         this.registerSystem(new FaceDirectionSystem(), 201);
         // 怪物表现接管怪物节点的 position/scale/angle/color，必须在 PosSynSystem 之后
         this.registerSystem(new MonsterVisualSystem(), 202);
+        // clip 动画播在表现层子节点上，与根节点的表现变换互不干扰
+        this.registerSystem(new MonsterClipSystem(), 204);
         this.registerSystem(new BulletDirSystem(), 203);
         this.registerSystem(new WeaponViewSystem(), 209);
         this.registerSystem(new AnimRenderSystem(), 500);
@@ -357,6 +365,15 @@ class World implements IWorld {
     hasComp(entityId: number, componentClass: new (...args: any[]) => any): boolean {
         return this.componentManager.hasComponent(entityId, componentClass);
     }
+    /**
+     * @description 查询所有实体 id
+     * 重开一局时需要销毁全部实体 —— 那时不知道对方有哪些组件类型，
+     * 所以需要一个"全量"入口，不能靠 query(具体组件) 拼。
+     */
+    getAllEntityIds(): number[] {
+        return this.componentManager ? this.componentManager.queryAll() : [];
+    }
+
     //#endregion
     //#region 系统API
     /**

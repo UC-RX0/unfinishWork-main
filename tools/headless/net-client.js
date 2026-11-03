@@ -31,7 +31,7 @@ Module._load = function (request, parent, isMain) {
 
 const BUILD = path.resolve(__dirname, '../../temp/headless-build/assets/Script');
 const { world } = require(path.join(BUILD, 'game/World.js'));
-const { createPlayers } = require(path.join(BUILD, 'game/SceneBuilder.js'));
+const { createBattleDirector, createPlayers } = require(path.join(BUILD, 'game/SceneBuilder.js'));
 const { NetClient } = require(path.join(BUILD, 'game/Net/NetClient.js'));
 const { NetworkInputSource } = require(path.join(BUILD, 'game/Net/NetworkInputSource.js'));
 const { ScriptedInputSystem } = require(path.join(BUILD, 'game/System/ScriptedInputSystem.js'));
@@ -74,6 +74,8 @@ async function main() {
     net.onRoster = (players) => world.setPlayerCount(players.length);
     world.setInputSource(source, start.playerCount);
 
+    // 导演实体与玩家实体都必须两端一致，否则实体集合不同必然分叉
+    createBattleDirector(world);
     createPlayers(world, start.playerCount);
 
     // 定期把校验和上报给服务端，服务端负责跨客户端比对

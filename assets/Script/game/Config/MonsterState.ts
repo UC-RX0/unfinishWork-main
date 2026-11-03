@@ -103,6 +103,22 @@ export const MONSTER_VISUAL_CFG = {
     },
 };
 
+/**
+ * @description 该状态的变换是否由 clip 动画接管
+ *
+ * Idle / Attack / Hit 三个状态有美术做的 .anim 片段，
+ * 它们的缩放与位移由 clip 负责（播在表现层子节点上）。
+ * 程序化表现在这三个状态下只负责【根节点定位】和【受击染色】，
+ * 不再叠加缩放/位移，否则会出现"呼吸 + clip 呼吸"的双重缩放。
+ *
+ * Move / Dead 没有 clip，全程由程序化表现负责。
+ */
+export function isClipDriven(state: MonsterState): boolean {
+    return state === MonsterState.Idle
+        || state === MonsterState.Attack
+        || state === MonsterState.Hit;
+}
+
 /**表现求值结果（渲染系统消费）*/
 export interface VisualOutput {
     /**表现偏移 X，叠加在逻辑位置之上*/
