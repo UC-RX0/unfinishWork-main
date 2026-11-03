@@ -139,10 +139,9 @@ export class GameLaunch extends Component {
         if (playerIds.length > 0) {
             const view = world.getComp(playerIds[0], ViewComponent);
             if (view && view.node) {
-                // 下一帧再设：PresentationRig.start() 还没跑，CameraFollow 还没挂上
-                this.scheduleOnce(() => {
-                    rig.setFollowTarget(view.node);
-                }, 0);
+                // 直接注入即可：PresentationRig 会在 start() 里应用，
+                // 若 start() 已经跑过，setFollowTarget 自己也会应用。
+                rig.setFollowTarget(view.node);
             }
         }
     }

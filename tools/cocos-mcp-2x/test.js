@@ -218,9 +218,19 @@ async function main() {
     console.log('\n=== 全文搜索 ===');
 
     await check('search_files 字面量搜索', async function () {
-        const r = await callTool('search_files', { pattern: 'MiniGame', glob: '*.ts' });
+        // 先用 bottle_new 项目里的特征词；换别的项目搜不到就退回通用词，
+        // 免得测试绑死在某个项目的代码上
+        let r = await callTool('search_files', { pattern: 'MiniGame', glob: '*.ts' });
+        if (!r.totalMatches) {
+            r = await callTool('search_files', { pattern: 'import', glob: '*.ts' });
+        }
+        if (!r.totalMatches) {
+            r = await callTool('search_files', { pattern: 'cc', path: 'assets' });
+        }
         assert.ok(r.totalMatches > 0, '一条都没搜到');
-        assert.ok(r.matches.every(function (m) { return /\.ts$/.test(m.file); }), 'glob 过滤没生效');
+        if (r.pattern !== 'cc') {
+            assert.ok(r.matches.every(function (m) { return /\.ts$/.test(m.file); }), 'glob 过滤没生效');
+        }
         console.log('        扫描 ' + r.scannedFiles + ' 个文件，命中 ' + r.totalMatches +
             ' 条 / ' + r.matchedFiles + ' 个文件，耗时 ' + r.tookMs + 'ms');
         console.log('        首条：' + r.matches[0].file + ':' + r.matches[0].line);

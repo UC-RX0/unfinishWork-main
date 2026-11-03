@@ -44,6 +44,13 @@ export class PresentationRig extends Component {
         if (this.mapNode) {
             this.mapOrigin.set(this.mapNode.position.x, this.mapNode.position.y, this.mapNode.position.z);
         }
+
+        // 相机跟随的目标由外部注入（可能是玩家 0 的节点）。
+        // 如果外部注入发生在 start() 之前，这里直接应用；
+        // 否则 setFollowTarget 会在外部注入时自行应用（见该方法）。
+        if (this.followTarget) {
+            this.applyFollowTarget();
+        }
     }
 
     update(dt: number) {
@@ -62,10 +69,14 @@ export class PresentationRig extends Component {
     /**把跟随目标交给 CameraFollow*/
     public setFollowTarget(target: Node): void {
         this.followTarget = target;
-        if (this.cameraNode) {
-            const follow = this.cameraNode.getComponent(CameraFollow);
-            if (follow) follow.target = target;
-        }
+        this.applyFollowTarget();
+    }
+
+    /**应用跟随目标（相机可能还没被找到，所以要判空）*/
+    private applyFollowTarget(): void {
+        if (!this.cameraNode) return;
+        const follow = this.cameraNode.getComponent(CameraFollow);
+        if (follow) follow.target = this.followTarget;
     }
 
     /**在场景树里按名字找节点（广度优先，跳过自己）*/
