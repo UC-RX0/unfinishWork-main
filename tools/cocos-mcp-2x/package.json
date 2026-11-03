@@ -1,0 +1,15 @@
+{
+  "name": "cocos-mcp-2x",
+  "version": "0.1.0",
+  "description": "Cocos Creator 2.x MCP server —— 让 AI 直接读写项目文件、查询场景树、读取编辑器日志",
+  "author": "unfinishWork",
+  "main": "main.js",
+  "main-menu": {
+    "扩展/Cocos MCP 2.x/状态与端口": {
+      "message": "cocos-mcp-2x:status"
+    },
+    "扩展/Cocos MCP 2.x/重启服务": {
+      "message": "cocos-mcp-2x:restart"
+    }
+  }
+}

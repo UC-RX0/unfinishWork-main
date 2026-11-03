@@ -74,22 +74,38 @@ async function main() {
     console.log('客户端A:', JSON.stringify(a.result));
     console.log('客户端B:', JSON.stringify(b.result));
 
-    const sumA = a.result.sample && a.result.sample.sum;
-    const sumB = b.result.sample && b.result.sample.sum;
-    const frameA = a.result.sample && a.result.sample.frame;
-    const frameB = b.result.sample && b.result.sample.frame;
+    // 【关键】比对必须用【已结算帧】的校验和。
+    //
+    // 预测模式下客户端会跑到服务端前面，当前帧的状态里可能含有
+    // "还没被服务端确认的预测输入"。拿这种状态去比对，
+    // 两端必然不一致 —— 但那不是分叉，只是还没走到同一步。
+    //
+    // 已结算帧 = 该帧所有输入都被服务端确认、且本端已按权威输入重演过。
+    // 只有它的校验和才有资格跨客户端比对。
+    const settledA = a.result.settled;
+    const settledB = b.result.settled;
+    const sumA = a.result.settledSum;
+    const sumB = b.result.settledSum;
 
     let pass = true;
 
-    if (frameA !== frameB) {
-        console.log(`❌ 采样帧号不一致：A=${frameA} B=${frameB}`);
+    if (settledA < 0 || settledB < 0) {
+        console.log('❌ 没有已结算的帧，无法比对');
+        pass = false;
+    } else if (settledA !== settledB) {
+        console.log(`❌ 已结算帧号不一致：A=${settledA} B=${settledB}`);
         pass = false;
     } else if (sumA !== sumB) {
-        console.log(`❌ 校验和不一致：frame=${frameA} A=${sumA} B=${sumB}`);
+        console.log(`❌ 已结算帧校验和不一致：frame=${settledA} A=${sumA} B=${sumB}`);
         pass = false;
     } else {
-        console.log(`✅ 同一帧校验和一致：frame=${frameA} sum=${sumA}`);
+        console.log(`✅ 已结算帧校验和一致：frame=${settledA} sum=${sumA}`);
     }
+
+    // 回滚统计：预测模式下远端输入变化会触发回滚，这是预期行为
+    const rbA = a.result.rollbacks || 0;
+    const rbB = b.result.rollbacks || 0;
+    console.log(`回滚次数：A=${rbA} B=${rbB}（远端输入变化时触发，属预期）`);
 
     if (/分叉|desync/.test(serverOut)) {
         console.log('❌ 服务端报告了分叉');

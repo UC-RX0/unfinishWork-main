@@ -7,7 +7,7 @@ import { ISystem } from './Base/ISystem';
 import { ComponentClass } from './tool/ComponentManager';
 import { IComponent } from './Base/IComponent';
 import { AnimComponent, BattleStateComponent, BulletComponent, DamageComponent, EnemyAIComponent, EnemyComponent, HealthComponent, OwnerComponent, PlayerInputComponent, PosComponent, ScoreComponent, VelocityComponent, ViewComponent, WeaponComponent } from './Component';
-import { AISystem, AnimRenderSystem, AnimTickSystem, BulletDirSystem, BulletSystem, ChecksumSystem, DamageSystem, DeathSystem, EnemySpawnSystem, FaceDirectionSystem, InputSystem, MonsterClipSystem, MonsterStateProbeSystem, MonsterStateSystem, MonsterVisualSystem, MoveSystem, PosSynSystem, ScoreSystem, ScriptedInputSystem, SnapshotTestSystem, WaveSystem, WeaponAimSystem, WeaponViewSystem, WeaponSystem } from './System';
+import { AISystem, AnimRenderSystem, AnimTickSystem, BulletDirSystem, BulletSystem, ChecksumSystem, DamageSystem, DeathSystem, EnemySpawnSystem, FaceDirectionSystem, InputSystem, MonsterClipSystem, MonsterStateProbeSystem, MonsterStateSystem, MonsterVisualSystem, MoveSystem, NodeRecyclerSystem, PosSynSystem, ScoreSystem, ScriptedInputSystem, SnapshotTestSystem, WaveSystem, WeaponAimSystem, WeaponViewSystem, WeaponSystem } from './System';
 import { MonsterStateComponent } from './Component/MonsterStateComponent';
 import { FixedStepClock } from './tool/FixedStepClock';
 import { GameTestRunner } from './Test/GameTestRunner';
@@ -15,6 +15,8 @@ import { logicRng } from './Math/PRNG';
 import { FrameInput, FrameInputBuffer, IFrameInputSource } from './Input/FrameInput';
 import { LocalInputSource } from './Input/LocalInputSource';
 import { copyValue, IWorldSnapshot } from './tool/Snapshot';
+import { DeferredNodeRecycler } from './tool/DeferredNodeRecycler';
+import { RollbackController } from './Net/RollbackController';
 import { resBridge } from '../core/resource/ResBridge';
 
 
@@ -46,6 +48,8 @@ class World implements IWorld {
     public stalled: boolean = false;
     /**当前是否为联机模式（联机时禁用手工快照自检，避免和回滚控制器打架）*/
     public networkMode: boolean = false;
+    /**回滚控制器：联机预测模式下挂载，负责快照与回滚重演*/
+    private rollback: RollbackController = null;
     private static _instance: World = null;
     private constructor() { }
     /**获取单实例 */
@@ -84,6 +88,13 @@ class World implements IWorld {
     }
     update(dt: number) {
         if (!this.clock) return;
+
+        // 回滚处理必须发生在逻辑帧边界 —— 不能在网络回调里直接改世界状态，
+        // 那会撕裂正在跑的模拟。网络层只入队，这里统一处理。
+        if (this.rollback) {
+            this.rollback.processPending();
+        }
+
         // 累积真实时间（带积压上限）
         this.clock.addTime(dt);
 
@@ -110,7 +121,49 @@ class World implements IWorld {
             this.frame = next;
             this.systemManager.update(this.clock.dt);
             executed++;
+
+            // 回滚控制器需要在每一帧结束后存快照（回滚要能回到这一帧之前）
+            if (this.rollback) {
+                this.rollback.captureFrame(this.frame);
+            }
         }
+    }
+
+    /**
+     * @description 执行一帧逻辑（不推进帧号，由调用方负责）
+     *
+     * 回滚重演专用：回滚时帧号已经被还原到某个历史值，
+     * 重演过程要精确按帧号推进，不能靠"当前帧 +1"。
+     */
+    public stepFrame(): void {
+        this.systemManager.update(this.clock.dt);
+    }
+
+    /**
+     * @description 设置当前帧号
+     * 回滚重演时用来把帧号拨回历史位置
+     */
+    public setFrame(frame: number): void {
+        this.frame = frame;
+    }
+
+    /**
+     * @description 挂载回滚控制器
+     * 挂上之后 World 每帧结束会自动存快照
+     */
+    public setRollbackController(controller: RollbackController | null): void {
+        this.rollback = controller;
+        // 起始帧的基线快照必须存在：
+        // 回滚到第 1 帧时需要"第 0 帧之后"的状态作为还原点，
+        // 没有它的话第一次分歧就会因为找不到快照而回滚失败 → 永久分叉。
+        if (controller) {
+            controller.captureFrame(this.frame);
+        }
+    }
+
+    /**当前挂载的回滚控制器（没有则 null）*/
+    public getRollbackController(): RollbackController | null {
+        return this.rollback;
     }
 
     /**
@@ -190,13 +243,22 @@ class World implements IWorld {
         const restoredIds = this.componentManager.query(ViewComponent);
         for (let i = 0; i < restoredIds.length; i++) {
             const view = this.componentManager.getComp(restoredIds[i], ViewComponent);
-            if (view && view.node) after.add(view.node);
+            if (view && view.node) {
+                after.add(view.node);
+                // 复活：死亡时被隐藏的节点，回滚后要重新显示
+                if (view.node.isValid && !view.node.active) {
+                    view.node.active = true;
+                    // 撤销待回收标记 —— 它要活着，不能被回收器销毁
+                    DeferredNodeRecycler.unmark(view.node);
+                }
+            }
         }
 
         // 窗口内新建、现在已不存在的实体 → 节点销毁
         for (let i = 0; i < before.length; i++) {
             const node = before[i];
             if (node && !after.has(node) && node.isValid) {
+                DeferredNodeRecycler.unmark(node);
                 node.destroy();
             }
         }
@@ -266,6 +328,8 @@ class World implements IWorld {
         this.registerSystem(new DeathSystem(), 130);
         // 动画推进属于逻辑：frameIndex / currentTrigger 会影响射击等玩法时序
         this.registerSystem(new AnimTickSystem(), 140);
+        // 节点回收：排在死亡之后，保证能看见本帧新标记的待回收节点
+        this.registerSystem(new NodeRecyclerSystem(), 150);
         //#endregion
 
         //#region 渲染段：只读组件，写节点，不回写逻辑

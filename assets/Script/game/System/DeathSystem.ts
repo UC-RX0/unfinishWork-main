@@ -3,9 +3,24 @@ import { AnimComponent, HealthComponent, ViewComponent } from "../Component";
 import { IState } from "../Component/AnimComponent";
 import { MonsterStateComponent } from "../Component/MonsterStateComponent";
 import { MONSTER_VISUAL_CFG, MonsterState } from "../Config/MonsterState";
+import { DeferredNodeRecycler } from "../tool/DeferredNodeRecycler";
 import { ComponentClass } from "../tool/ComponentManager";
 
-//优先级130
+/**
+ * @description 死亡处理（优先级 130）
+ *
+ * 【为什么不能直接 destroy】
+ *   回滚要求"实体在回滚后能复活"。
+ *   如果死亡时就把节点 destroy() 了，回滚到实体还活着的时刻时，
+ *   节点已经不存在了 —— 实体复活了但没有画面。
+ *
+ *   所以改成两段式：
+ *     逻辑层：本帧立即移除实体（后续系统不再看到它）
+ *     视图层：节点先隐藏，等过了回滚窗口（DeferredNodeRecycler）再真正回收
+ *
+ * 【时间基准】
+ *   全部用逻辑帧号，不用秒。帧同步下这是唯一安全的做法。
+ */
 export class DeathSystem extends ISystem {
     requiredComponents: ComponentClass<any>[] = [];
 
@@ -31,7 +46,8 @@ export class DeathSystem extends ISystem {
             const st = this.world.getComp(id, MonsterStateComponent);
             if (st.state !== MonsterState.Dead) continue;
             if (frame - st.enterFrame < MONSTER_VISUAL_CFG.Dead.frames) continue;
-            this.destroyEntity(id);
+
+            this.killEntity(id);
         }
     }
 
@@ -50,15 +66,37 @@ export class DeathSystem extends ISystem {
                     anim.nextState = deadKey;
                 }
                 if (anim.isComplete) {
-                    this.destroyEntity(entity);
+                    this.killEntity(entity);
                 }
             }
         }
     }
 
-    private destroyEntity(entityId: number): void {
-        let view = this.world.getComp(entityId, ViewComponent);
-        if (view && view.node) view.node.destroy();
+    /**
+     * 击杀一个实体
+     *
+     * 顺序很重要：
+     *   1. 先把节点藏起来（玩家立刻看不到尸体）
+     *   2. 再从逻辑世界移除（后续系统不再处理它）
+     *   3. 标记节点待回收（窗口过后才真正回收）
+     *
+     * 节点不立即 destroy —— 回滚要能把它复活。
+     */
+    private killEntity(entityId: number): void {
+        const view = this.world.getComp(entityId, ViewComponent);
+        if (view && view.node) {
+            view.node.active = false;
+            DeferredNodeRecycler.mark(view.node, this.world.frame, this.prefabKeyOf(view), this.prefabNameOf(view));
+        }
         this.world.removeEntityById(entityId);
+    }
+
+    /**取节点对应的预制体标识（回收时用）*/
+    private prefabKeyOf(view: any): string {
+        return view.prefabKey || "";
+    }
+
+    private prefabNameOf(view: any): string {
+        return view.prefabName || "";
     }
 }

@@ -28,6 +28,18 @@ export class ChecksumSystem extends ISystem {
     public static reportInterval: number = 30;
     /**上报回调，由网络层挂接*/
     public static onChecksum: (frame: number, hex: string) => void = null;
+    /**
+     * 每帧的校验和回调：(帧号, 校验和)。
+     *
+     * 【为什么需要它】
+     *   预测模式下，客户端会跑到服务端前面去。
+     *   当前帧的状态里可能含有【还没被服务端确认】的预测输入，
+     *   这时的校验和是"临时值"，拿去和别的客户端比对必然出错。
+     *
+     *   所以校验和要按帧号存下来，等这一帧的输入全部被确认后，
+     *   再取出来上报 —— 那才是"已结算"的校验和。
+     */
+    public static onFrameChecksum: (frame: number, hex: string) => void = null;
 
     /**复用的哈希器，避免每帧分配*/
     private static _sum: Checksum = new Checksum();
@@ -94,18 +106,18 @@ export class ChecksumSystem extends ISystem {
 
         const result = ChecksumSystem.compute(this.world);
 
+        // 每帧的校验和按帧号交给回滚控制器存档。
+        // 它要等这一帧的输入全部被服务端确认后，才认为这一帧"已结算"。
+        if (ChecksumSystem.onFrameChecksum) {
+            ChecksumSystem.onFrameChecksum(frame, result.hex);
+        }
+
         // 用 >= 加一次性标记，而不是精确等于：
         // 万一某帧因等待/追帧被跳过，精确相等会永远错过触发点
         if (!this.probeDone && localFrame >= ChecksumSystem.probeFrame) {
             this.probeDone = true;
             ChecksumSystem.lastHex = result.hex;
             this.createProbe(`DET#local=${localFrame}/frame=${frame}#sum=${result.hex}#count=${result.count}`);
-        }
-
-        // 联机时定期上报，服务端负责跨客户端比对，不一致就广播 desync
-        if (ChecksumSystem.onChecksum && ChecksumSystem.reportInterval > 0
-            && frame % ChecksumSystem.reportInterval === 0) {
-            ChecksumSystem.onChecksum(frame, result.hex);
         }
     }
 

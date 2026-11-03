@@ -13,6 +13,19 @@ export const NET_INPUT_SCALE = 1000;
 //#region 客户端 → 服务端
 export interface InputMsg {
     t: 'input';
+    /**
+     * 这个输入属于哪一逻辑帧。
+     *
+     * 【为什么必须带帧号】
+     *   客户端预测时，本地输入"立即生效"，但服务端盖章是异步的。
+     *   如果不带帧号，服务端只能按"上报时刻"盖章，
+     *   客户端就永远不知道自己的输入被算到了哪一帧上，
+     *   预测也就无从比对。
+     *
+     *   带上帧号后：客户端采样第 N 帧的输入 → 报"N 帧的输入" →
+     *   服务端在第 N 帧盖章回传 → 两端逐位相同，本地输入永不回滚。
+     */
+    frame: number;
     dirX: number;
     dirY: number;
     speed: number;

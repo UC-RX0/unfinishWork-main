@@ -45,7 +45,8 @@ export class NetworkInputSource implements IFrameInputSource {
         }
         const fire = inputMgr.wantsToFire(p);
 
-        this.net.sendInput(dirX, dirY, speed, fire);
+        // 同时上报给服务端（带上帧号，服务端按帧号盖章）
+        this.net.sendInput(frame, dirX, dirY, speed, fire);
     }
 
     public ready(frame: number, playerCount: number): boolean {

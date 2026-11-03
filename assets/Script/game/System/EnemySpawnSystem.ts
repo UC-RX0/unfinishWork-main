@@ -119,6 +119,9 @@ export class EnemySpawnSystem extends ISystem {
         // 基础属性：波次倍率 × 类型倍率
         viewComp.node = resBridge.spawn(PathEnum.Enemy, UIEnum.Enemy);
         viewComp.node.parent = uiMgr.getLayer(LayerEnum.GameLayer);
+        // 记录预制体标识：节点延迟回收时要还回对应的池子
+        viewComp.prefabKey = PathEnum.Enemy;
+        viewComp.prefabName = UIEnum.Enemy;
         // clip 动画播在子节点上：clip 里的 position 是绝对轨道，
         // 直接播在根节点会把怪物瞬移到原点
         viewComp.fxNode = this.createFxNode(viewComp.node);

@@ -5,11 +5,13 @@ import type { IBootProgress } from './core/resource/ResBridge';
 import { BATTLE_CONFIG } from './game/Config/BattleConfig';
 import { logicRng } from './game/Math/PRNG';
 import { NetClient } from './game/Net/NetClient';
-import { NetworkInputSource } from './game/Net/NetworkInputSource';
+import { PredictiveInputSource } from './game/Net/PredictiveInputSource';
+import { RollbackController } from './game/Net/RollbackController';
 import type { WelcomeMsg } from './game/Net/Protocol';
 import { createBattleDirector, createPlayers } from './game/SceneBuilder';
 import { ChecksumSystem, MonsterStateProbeSystem, ScriptedInputSystem } from './game/System';
 import { world } from './game/World';
+import { DeferredNodeRecycler } from './game/tool/DeferredNodeRecycler';
 import { BattleHud } from './UI/BattleHud';
 import { PresentationRig } from './UI/PresentationRig';
 import { PlayerInputComponent, ViewComponent } from './game/Component';
@@ -32,6 +34,10 @@ export class GameLaunch extends Component {
     private isInit: boolean = false;
     /**联机客户端，单机模式下为 null*/
     private net: NetClient = null;
+    /**回滚控制器（联机时挂载）*/
+    private rollback: RollbackController = null;
+    /**上次上报校验和的帧号（避免重复上报同一帧）*/
+    private lastReportedFrame: number = -1;
 
     async onLoad() {
         // ---------- 启动期：唯一允许 await 的地方 ----------
@@ -97,10 +103,16 @@ export class GameLaunch extends Component {
         if (welcome && this.net) {
             world.setStartFrame(startFrame);
             world.setPlayerCount(playerCount);
-            this.setupNetworkInput(welcome, playerCount);
         }
 
         this.buildScene();
+
+        // 联机输入源必须在建实体【之后】挂载 ——
+        // 回滚控制器的基线快照要包含玩家实体，否则回滚到起始帧时玩家会消失
+        if (welcome && this.net) {
+            this.setupNetworkInput(welcome, playerCount);
+        }
+
         this.setupHud();
         this.setupPresentation();
 
@@ -154,7 +166,12 @@ export class GameLaunch extends Component {
 
     /**把网络输入源接到 World：此后所有输入都来自服务端帧包*/
     private setupNetworkInput(welcome: WelcomeMsg, playerCount: number) {
-        const source = new NetworkInputSource(world.getInputBuffer(), this.net);
+        // 预测回滚控制器：联机时挂上，每帧存快照，收到权威帧后比对并回滚
+        const rollback = new RollbackController(world, world.getInputBuffer());
+        rollback.setLocalPlayer(welcome.playerIndex, playerCount);
+        world.setRollbackController(rollback);
+
+        const source = new PredictiveInputSource(world.getInputBuffer(), this.net, rollback);
         source.localPlayerIndex = welcome.playerIndex;
 
         this.net.onFrame = (msg) => source.applyFrame(msg);
@@ -167,13 +184,34 @@ export class GameLaunch extends Component {
 
         world.setInputSource(source, playerCount);
         world.networkMode = true;
-        // 定期上报校验和，服务端负责跨客户端比对
-        ChecksumSystem.onChecksum = (frame, hex) => this.net.sendChecksum(frame, hex);
+        // 开局上报：打破"等确认才能推进、但不推进就没有输入上报"的死锁
+        source.bootstrap(welcome.frame, playerCount);
+
+        // 校验和按帧号存档（由 ChecksumSystem 每帧回调）
+        ChecksumSystem.onFrameChecksum = (frame, hex) => rollback.captureChecksum(frame, hex);
+
+        // 定期上报【已结算帧】的校验和，服务端负责跨客户端比对。
+        // 注意不能用当前帧 —— 当前帧可能含预测输入，比对必然失败。
+        this.rollback = rollback;
+    }
+
+    /**联机时定期上报已结算帧的校验和*/
+    private reportChecksum() {
+        if (!this.rollback || !this.net) return;
+        const report = this.rollback.getReportableChecksum();
+        if (!report) return;
+        if (report.frame === this.lastReportedFrame) return;
+        this.lastReportedFrame = report.frame;
+        this.net.sendChecksum(report.frame, report.hex);
     }
 
     update(dt: number) {
         if (this.isInit) {
             world.update(dt);
+            // 每 30 个逻辑帧上报一次已结算的校验和
+            if (this.rollback && world.frame % 30 === 0) {
+                this.reportChecksum();
+            }
         }
     }
 
@@ -197,7 +235,12 @@ export class GameLaunch extends Component {
             this.net = null;
         }
         ChecksumSystem.onChecksum = null;
+        ChecksumSystem.onFrameChecksum = null;
+        world.setRollbackController(null);
+        DeferredNodeRecycler.clear();
         world.onDestroy();
+        this.rollback = null;
+        this.lastReportedFrame = -1;
         this.isInit = false;
     }
 }

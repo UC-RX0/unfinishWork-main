@@ -20,6 +20,13 @@ export interface IWorld {
     onDestroy(): void;
     /**当前参与同步的玩家数量*/
     getPlayerCount(): number;
+    /**
+     * 执行一帧逻辑（不推进帧号）。
+     * 回滚重演专用：重演时帧号已被还原到历史值，要精确按帧号推进。
+     */
+    stepFrame(): void;
+    /**设置当前帧号（回滚时把帧号拨回历史位置）*/
+    setFrame(frame: number): void;
     //#endregion
     //#region 输入
     /**

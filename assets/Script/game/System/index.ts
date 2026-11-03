@@ -12,6 +12,7 @@ export { MonsterStateSystem } from './MonsterStateSystem';
 export { ScoreSystem } from './ScoreSystem';
 export { DeathSystem } from './DeathSystem';
 export { AnimTickSystem } from './AnimTickSystem';
+export { NodeRecyclerSystem } from './NodeRecyclerSystem';
 //#endregion
 
 //#region 渲染段（只读逻辑数据，不回写）

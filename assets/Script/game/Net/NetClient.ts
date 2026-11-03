@@ -102,10 +102,14 @@ export class NetClient {
         return !!this.ws && this.ws.readyState === 1;
     }
 
-    /**上报当前输入状态（服务端会把它盖章到当前帧）*/
-    public sendInput(dirX: number, dirY: number, speed: number, fire: boolean): void {
+    /**
+     * 上报当前输入状态
+     *
+     * @param frame 这个输入属于哪一逻辑帧（服务端按帧号盖章）
+     */
+    public sendInput(frame: number, dirX: number, dirY: number, speed: number, fire: boolean): void {
         if (!this.connected) return;
-        const msg: InputMsg = { t: 'input', dirX, dirY, speed, fire };
+        const msg: InputMsg = { t: 'input', frame, dirX, dirY, speed, fire };
         this.ws.send(JSON.stringify(msg));
     }
 

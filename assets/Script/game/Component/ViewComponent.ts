@@ -14,4 +14,10 @@ export class ViewComponent implements IComponent {
      * 没有这个节点的实体不播 clip，走程序化表现即可。
      */
     fxNode: Node = null;
+    /**
+     * 预制体标识（目录 / 名称）。
+     * 节点延迟回收时需要知道该还回哪个池子。
+     */
+    prefabKey: string = "";
+    prefabName: string = "";
 }

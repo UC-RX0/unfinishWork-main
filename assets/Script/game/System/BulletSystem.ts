@@ -1,8 +1,8 @@
 import { PathEnum, UIEnum } from "../../core/manager/UIManager";
-import { resBridge } from "../../core/resource/ResBridge";
 import { ISystem } from "../Base/ISystem";
 import { AnimComponent, BulletComponent, PosComponent, ViewComponent } from "../Component";
 import { BATTLE_CONFIG } from "../Config/BattleConfig";
+import { DeferredNodeRecycler } from "../tool/DeferredNodeRecycler";
 import { ComponentClass } from "../tool/ComponentManager";
 
 
@@ -22,9 +22,7 @@ export class BulletSystem extends ISystem {
 
             // 1. 打中目标：动画播完（Explode）后回收
             if (anim && anim.isComplete) {
-                // 回收动作收敛到过渡层，BulletSystem 不再反向依赖 WeaponSystem 的静态池
-                resBridge.recycle(PathEnum.Bullet1, UIEnum.Bullet2, node);
-                this.world.removeEntity(bulletComponent.entity);
+                this.retireBullet(entity, bulletComponent, node);
                 continue;
             }
 
@@ -36,13 +34,25 @@ export class BulletSystem extends ISystem {
                 const limitX = BATTLE_CONFIG.fieldHalfWidth + BATTLE_CONFIG.bulletOutMargin;
                 const limitY = BATTLE_CONFIG.fieldHalfHeight + BATTLE_CONFIG.bulletOutMargin;
                 if (Math.abs(pos.pos.x) > limitX || Math.abs(pos.pos.y) > limitY) {
-                    resBridge.recycle(PathEnum.Bullet1, UIEnum.Bullet2, node);
-                    this.world.removeEntity(bulletComponent.entity);
+                    this.retireBullet(entity, bulletComponent, node);
                     continue;
                 }
             }
         }
     }
 
-
+    /**
+     * @description 退役一颗子弹
+     *
+     * 节点不能立即 recycle 回池 —— 回滚可能把这个世界还原到"这颗子弹还在飞"，
+     * 那时节点已经被借给别的子弹了，就会张冠李戴。
+     * 所以先隐藏 + 标记，等过了回滚窗口再真正回收（见 DeferredNodeRecycler）。
+     */
+    private retireBullet(entity: number, bulletComponent: any, node: any): void {
+        if (node) {
+            node.active = false;
+            DeferredNodeRecycler.mark(node, this.world.frame, PathEnum.Bullet1, UIEnum.Bullet2);
+        }
+        this.world.removeEntity(bulletComponent.entity);
+    }
 }

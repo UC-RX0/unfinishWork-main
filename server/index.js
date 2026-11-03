@@ -6,7 +6,7 @@
  * 设计原则：服务端【不跑任何游戏逻辑】。
  * 它只做三件事：
  *   1. 按固定帧率推进全局帧号
- *   2. 把每个玩家"最近一次上报的输入"盖章到当前帧
+ *   2. 把每个玩家"针对该帧上报的输入"盖章到该帧
  *   3. 把这一帧的完整输入广播给所有人，并比对校验和
  *
  * 为什么服务端不跑逻辑：
@@ -14,11 +14,14 @@
  *   服务端一旦参与模拟，就要承担全部算力，也就退化成状态同步了。
  *
  * 输入归属说明：
- *   本实现是"服务端采样"——客户端持续上报当前输入状态，
- *   服务端在每一帧取各玩家最近一次上报值并盖章。
- *   这样输入归属由服务端唯一决定，所有客户端收到的帧包完全一致，
- *   模拟仍然是确定的；代价是本地操作会有一个往返延迟（约 1~2 帧）。
- *   要消除这个延迟需要客户端预测 + 回滚，那是下一阶段的事。
+ *   客户端上报时【带帧号】（msg.frame），服务端按帧号存，
+ *   到该帧时取出各玩家的输入盖章广播。
+ *   这样客户端可以立刻用自己的输入跑预测帧，
+ *   服务端回传的权威值与它采样时逐位相同 → 本地输入永不触发回滚。
+ *   会分歧的只有远端玩家的输入，由客户端的回滚机制修正。
+ *
+ * 兼容：仍然接受不带帧号的旧格式输入（按"最近一次上报"处理），
+ *   这样老的测试客户端也能连上。
  */
 
 const { WebSocketServer } = require('ws');
@@ -43,7 +46,12 @@ const SEED = 20261103;
 
 const wss = new WebSocketServer({ port: PORT });
 
-/**ws -> { index, last: {dirX,dirY,speed,fire} }*/
+/**
+ * ws -> { index, byFrame: Map<frame, input>, last: {dirX,dirY,speed,fire} }
+ *
+ * byFrame：客户端按帧号上报的输入（带帧号的新协议）
+ * last：最近一次上报（不带帧号的旧协议用）
+ */
 const clients = new Map();
 /**最近一次校验和：frame -> { playerIndex -> hex }*/
 const checksums = new Map();
@@ -70,6 +78,17 @@ function maybeStart() {
     console.log(`[server] 房间成型（${clients.size} 人），开局，起始帧=${frame}`);
     broadcast({ t: 'start', playerCount: clients.size, seed: SEED, frame, logicFps: LOGIC_FPS });
     startLoop();
+}
+
+/**
+ * 所有在线客户端是否都上报了 targetFrame 帧的输入。
+ * 这是"按帧号盖章"的前提 —— 输入没到齐就不能盖章，否则会盖错。
+ */
+function hasAllInputs(targetFrame) {
+    for (const c of clients.values()) {
+        if (!c.byFrame.has(targetFrame)) return false;
+    }
+    return true;
 }
 
 function send(ws, obj) {
@@ -102,7 +121,23 @@ function stopLoop() {
 
 function tick() {
     if (clients.size === 0) return;
-    frame++;
+
+    // 【关键】只有当所有在线客户端都上报了【下一帧】的输入，才广播这一帧。
+    //
+    // 为什么必须等：
+    //   客户端按帧号上报（msg.frame），服务端按帧号盖章。
+    //   如果不等就广播，服务端会用"最近一次上报"盖上还没到的帧的章 ——
+    //   那个值属于别的帧，客户端比对时会误判成分歧，产生无谓的回滚。
+    //
+    // 代价：服务端会落后客户端（这是帧同步的本质）。
+    // 客户端用【预测】来补偿 —— 本地输入立即生效，不等权威帧。
+    const next = frame + 1;
+    if (!hasAllInputs(next)) {
+        // 输入没到齐，这一帧先不广播，等下一轮 tick 再试
+        return;
+    }
+
+    frame = next;
 
     // 每秒打一行客户端推进情况，用来观察客户端是否跟得上
     if (frame % 60 === 0) {
@@ -110,17 +145,33 @@ function tick() {
         console.log(`[server] 服务端帧=${frame} 客户端最新帧 ${parts || '(无)'}`);
     }
 
-    // 每个玩家取"最近一次上报的输入"，盖章到本帧
+    // 每个玩家取"针对本帧上报的输入"，盖章到本帧
     const inputs = [];
     for (const c of clients.values()) {
-        inputs.push({
-            frame,
-            playerIndex: c.index,
-            dirX: c.last.dirX,
-            dirY: c.last.dirY,
-            speed: c.last.speed,
-            fire: c.last.fire,
-        });
+        const byFrame = c.byFrame.get(frame);
+        if (byFrame) {
+            inputs.push({
+                frame,
+                playerIndex: c.index,
+                dirX: byFrame.dirX,
+                dirY: byFrame.dirY,
+                speed: byFrame.speed,
+                fire: byFrame.fire,
+            });
+            // 该帧的输入已盖章，用完即弃，避免无限增长
+            c.byFrame.delete(frame);
+        } else {
+            // 理论上不会走到这里（hasAllInputs 保证了齐全），
+            // 兜底用空输入，保证帧包里每个玩家都有一项
+            inputs.push({
+                frame,
+                playerIndex: c.index,
+                dirX: 0,
+                dirY: 0,
+                speed: 0,
+                fire: false,
+            });
+        }
     }
 
     broadcast({ t: 'frame', frame, inputs });
@@ -172,7 +223,11 @@ wss.on('connection', (ws) => {
     }
 
     const index = nextIndex++;
-    clients.set(ws, { index, last: { dirX: 0, dirY: 0, speed: 0, fire: false } });
+    clients.set(ws, {
+        index,
+        last: { dirX: 0, dirY: 0, speed: 0, fire: false },
+        byFrame: new Map(),
+    });
     console.log(`[server] 玩家 ${index} 加入，当前 ${clients.size} 人`);
 
     send(ws, {
@@ -203,6 +258,15 @@ wss.on('connection', (ws) => {
                 speed: msg.speed | 0,
                 fire: !!msg.fire,
             };
+            // 带帧号的新协议：按帧号存，服务端到那一帧时盖章
+            if (typeof msg.frame === 'number' && msg.frame > 0) {
+                client.byFrame.set(msg.frame, client.last);
+                // 清理过老的帧，避免客户端预测过远导致无限增长
+                if (client.byFrame.size > 300) {
+                    const oldest = Math.min(...client.byFrame.keys());
+                    client.byFrame.delete(oldest);
+                }
+            }
         } else if (msg.t === 'checksum') {
             clientFrames.set(client.index, msg.frame);
             compareChecksum(msg, client.index);

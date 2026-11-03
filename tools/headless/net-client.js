@@ -33,7 +33,8 @@ const BUILD = path.resolve(__dirname, '../../temp/headless-build/assets/Script')
 const { world } = require(path.join(BUILD, 'game/World.js'));
 const { createBattleDirector, createPlayers } = require(path.join(BUILD, 'game/SceneBuilder.js'));
 const { NetClient } = require(path.join(BUILD, 'game/Net/NetClient.js'));
-const { NetworkInputSource } = require(path.join(BUILD, 'game/Net/NetworkInputSource.js'));
+const { PredictiveInputSource } = require(path.join(BUILD, 'game/Net/PredictiveInputSource.js'));
+const { RollbackController } = require(path.join(BUILD, 'game/Net/RollbackController.js'));
 const { ScriptedInputSystem } = require(path.join(BUILD, 'game/System/ScriptedInputSystem.js'));
 const { ChecksumSystem } = require(path.join(BUILD, 'game/System/ChecksumSystem.js'));
 const { logicRng } = require(path.join(BUILD, 'game/Math/PRNG.js'));
@@ -68,7 +69,11 @@ async function main() {
     world.setPlayerCount(start.playerCount);
     world.networkMode = true;
 
-    const source = new NetworkInputSource(world.getInputBuffer(), net);
+    // 预测回滚：本地输入立即生效，权威帧到了之后比对修正
+    const rollback = new RollbackController(world, world.getInputBuffer());
+    rollback.setLocalPlayer(myIndex, start.playerCount);
+
+    const source = new PredictiveInputSource(world.getInputBuffer(), net, rollback);
     source.localPlayerIndex = myIndex;
     net.onFrame = (msg) => source.applyFrame(msg);
     net.onRoster = (players) => world.setPlayerCount(players.length);
@@ -78,18 +83,43 @@ async function main() {
     createBattleDirector(world);
     createPlayers(world, start.playerCount);
 
-    // 定期把校验和上报给服务端，服务端负责跨客户端比对
-    ChecksumSystem.onChecksum = (frame, hex) => net.sendChecksum(frame, hex);
+    // 基线快照必须在建实体之后采集 —— 回滚到起始帧时玩家要在
+    world.setRollbackController(rollback);
+
+    // 开局上报：打破"等确认才能推进、但不推进就没有输入上报"的死锁
+    source.bootstrap(start.frame, start.playerCount);
+
+    // 校验和按帧号存档；上报只用【已结算帧】——
+    // 当前帧可能含预测输入，拿去比对会产生假分叉
+    ChecksumSystem.onFrameChecksum = (frame, hex) => rollback.captureChecksum(frame, hex);
+    let lastReported = -1;
 
     let sample = null;
     const DT = 1 / 60;
     let guard = 0;
+    // 按【真实时间】推进：客户端跑太快的话，帧号会远超服务端，
+    // 服务端追不上就永远等不齐输入，测试就没意义了。
+    const startTime = Date.now();
     while (world.frame < TARGET_FRAME && guard < TARGET_FRAME * 40) {
         world.update(DT);
         if (sample === null && world.frame >= SAMPLE_FRAME) {
             sample = { frame: world.frame, sum: ChecksumSystem.compute(world).hex };
         }
-        await sleep(1);
+        // 定期上报已结算帧的校验和
+        if (world.frame % 30 === 0) {
+            const report = rollback.getReportableChecksum();
+            if (report && report.frame !== lastReported) {
+                lastReported = report.frame;
+                net.sendChecksum(report.frame, report.hex);
+            }
+        }
+        // 必须每轮都让出事件循环，否则 WebSocket 的帧包收不到：
+        // 等第一帧时 world.frame 不推进，"真实时间对齐"的等待量恒为 0，
+        // 循环就变成同步空转，事件循环被占满 → 永远收不到服务端回复。
+        const elapsed = Date.now() - startTime;
+        const expected = (world.frame - start.frame) * (1000 / 60);
+        const wait = Math.max(1, Math.min(20, expected - elapsed));
+        await sleep(wait);
         guard++;
     }
 
@@ -97,7 +127,12 @@ async function main() {
         playerIndex: myIndex,
         frames: world.frame,
         sample,
+        // 已结算帧的校验和 —— 这才是能与其它客户端比对的
+        settled: rollback.settled,
+        settledSum: rollback.getSettledChecksum(rollback.settled),
         finalSum: ChecksumSystem.compute(world).hex,
+        rollbacks: rollback.rollbackCount,
+        lastRollbackFrames: rollback.lastRollbackFrames,
     };
     console.log('CLIENT_RESULT ' + JSON.stringify(result));
     net.close();
