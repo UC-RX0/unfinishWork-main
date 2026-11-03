@@ -68,4 +68,17 @@ export const BATTLE_CONFIG = {
      */
     randomSeed: 20261103,
     //#endregion
+
+    //#region 网络
+    /**
+     * 联机开关。
+     * false：本地单机，输入由 LocalInputSource 采样
+     * true ：连接帧同步服务端，输入由 NetworkInputSource 从帧包解出
+     */
+    net: {
+        enabled: false,
+        url: "ws://127.0.0.1:7788",
+        maxPlayers: 2,
+    },
+    //#endregion
 };

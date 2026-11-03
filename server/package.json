@@ -1,0 +1,14 @@
+{
+  "name": "unfinishwork-lockstep-server",
+  "version": "1.0.0",
+  "private": true,
+  "description": "帧同步定序服务端：只做输入定序与广播，不跑任何游戏逻辑",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "test": "node test-client.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}

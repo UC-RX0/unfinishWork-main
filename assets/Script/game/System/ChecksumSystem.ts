@@ -23,15 +23,30 @@ export class ChecksumSystem extends ISystem {
     public static probeFrame: number = 360;
     /**最近一次的校验和（十六进制）*/
     public static lastHex: string = "";
+    /**每隔多少帧向外上报一次校验和（联机时用于服务端对比）*/
+    public static reportInterval: number = 30;
+    /**上报回调，由网络层挂接*/
+    public static onChecksum: (frame: number, hex: string) => void = null;
 
     private sum: Checksum = new Checksum();
+    /**开局帧号基线，用于把服务端的大帧号折算成"开局第几帧"*/
+    private baseFrame: number = -1;
+    /**探针是否已输出过，保证只写一次*/
+    private probeDone: boolean = false;
 
     init(): void {
         this.enable = true;
+        this.baseFrame = -1;
+        this.probeDone = false;
     }
 
     update(dt: number): void {
         const frame = this.world.frame;
+        // 联机时帧号由服务端分配，可能从几千开始，
+        // 探针要按"开局第几帧"触发，所以这里记一个基线
+        if (this.baseFrame < 0) this.baseFrame = frame - 1;
+        const localFrame = frame - this.baseFrame;
+
         const sum = this.sum;
         sum.reset();
 
@@ -66,12 +81,20 @@ export class ChecksumSystem extends ISystem {
         // 实体总数也要纳入，否则"漏掉一个实体"这种差异可能被哈希掩盖
         sum.pushInt(count);
 
-        if (frame === ChecksumSystem.probeFrame) {
+        // 用 >= 加一次性标记，而不是精确等于：
+        // 万一某帧因等待/追帧被跳过，精确相等会永远错过触发点
+        if (!this.probeDone && localFrame >= ChecksumSystem.probeFrame) {
+            this.probeDone = true;
             ChecksumSystem.lastHex = sum.hex;
             if (ChecksumSystem.probeNode) {
-                // 只写一次，之后不再覆盖，避免外部读到不同帧的值
-                ChecksumSystem.probeNode.name = `DET#frame=${frame}#sum=${sum.hex}#count=${count}`;
+                ChecksumSystem.probeNode.name = `DET#local=${localFrame}/frame=${frame}#sum=${sum.hex}#count=${count}`;
             }
+        }
+
+        // 联机时定期上报，服务端负责跨客户端比对，不一致就广播 desync
+        if (ChecksumSystem.onChecksum && ChecksumSystem.reportInterval > 0
+            && frame % ChecksumSystem.reportInterval === 0) {
+            ChecksumSystem.onChecksum(frame, sum.hex);
         }
     }
 }

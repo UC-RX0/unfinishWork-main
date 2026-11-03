@@ -79,17 +79,18 @@ class World implements IWorld {
     }
     update(dt: number) {
         if (!this.clock) return;
-        // 把渲染帧的不稳定 dt 兑换成整数次固定步长 tick。
-        // 一次渲染帧可能需要补跑 0~N 个逻辑帧，超出上限就丢弃积压（防止死亡螺旋）。
-        const steps = this.clock.advance(dt);
-        for (let i = 0; i < steps; i++) {
+        // 累积真实时间（带积压上限）
+        this.clock.addTime(dt);
+
+        let executed = 0;
+        while (executed < this.clock.maxCatchUp && this.clock.canStep()) {
             const next = this.frame + 1;
 
             if (this.inputSource) {
                 // 为下一帧准备输入（本地采样 / 从网络包解出）
                 this.inputSource.produce(next, this.playerCount);
-                // 锁步等待：该帧输入没到齐就不推进，本渲染帧到此为止。
-                // 单机模式下 ready() 恒为 true，这里永远不会卡。
+                // 锁步等待：该帧输入没到齐就停下，【不消费时间】，
+                // 这样等包期间累积的时间不会被吞掉，包到了立刻连续补上
                 if (!this.inputSource.ready(next, this.playerCount)) {
                     this.stalled = true;
                     break;
@@ -99,10 +100,22 @@ class World implements IWorld {
                 if ((next & 63) === 0) this.inputSource.prune(next);
             }
 
+            this.clock.consumeStep();
             // 先推进帧号再 tick：本帧内写入 enterFrame 的实体，帧龄从 0 开始计
             this.frame = next;
             this.systemManager.update(this.clock.dt);
+            executed++;
         }
+    }
+
+    /**
+     * @description 设置起始帧号
+     * 联机时必须用服务端下发的帧号对齐，否则客户端从 0 开始数，
+     * 而输入缓冲里存的是服务端的帧号，两边的帧号永远对不上，世界会一直卡住。
+     */
+    setStartFrame(frame: number): void {
+        this.frame = frame;
+        this.stalled = false;
     }
 
     /**
@@ -123,6 +136,16 @@ class World implements IWorld {
     /**供外部（网络层）访问输入缓冲，用于塞入服务端下发的输入包*/
     getInputBuffer(): FrameInputBuffer {
         return this.inputBuffer;
+    }
+
+    /**当前参与同步的玩家数量*/
+    getPlayerCount(): number {
+        return this.playerCount;
+    }
+
+    /**房间人数变化时由网络层通知（新玩家加入后会重建实体）*/
+    setPlayerCount(count: number): void {
+        if (count > 0) this.playerCount = count;
     }
     /**
      * @description 添加组件 
