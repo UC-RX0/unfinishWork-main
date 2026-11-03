@@ -3,12 +3,14 @@ import { _decorator, Component, Node } from 'cc';
 import { IWorld } from './Base/IWorld';
 import { Entity, EntityPool } from './entity';
 import { ComponentManager, SystemManager } from './tool';
-import { gameParam } from '../core/game/GameSetting';
 import { ISystem } from './Base/ISystem';
 import { ComponentClass } from './tool/ComponentManager';
 import { IComponent } from './Base/IComponent';
 import { AnimComponent, BulletComponent, DamageComponent, EnemyAIComponent, EnemyComponent, HealthComponent, OwnerComponent, PlayerInputComponent, PosComponent, VelocityComponent, ViewComponent, WeaponComponent } from './Component';
-import { AISystem, AnimPlaySystem, BulletDirSystem, BulletSystem, DamageSystem, DeathSystem, EnemySpawnSystem, FaceDirectionSystem, InputSystem, MoveSystem, PosSynSystem, WeaponSyncSystem, WeaponSystem } from './System';
+import { AISystem, AnimPlaySystem, BulletDirSystem, BulletSystem, ChecksumSystem, DamageSystem, DeathSystem, EnemySpawnSystem, FaceDirectionSystem, InputSystem, MonsterStateSystem, MonsterVisualSystem, MoveSystem, PosSynSystem, WeaponSyncSystem, WeaponSystem } from './System';
+import { MonsterStateComponent } from './Component/MonsterStateComponent';
+import { FixedStepClock } from './tool/FixedStepClock';
+import { resBridge } from '../core/resource/ResBridge';
 
 
 /**
@@ -21,7 +23,14 @@ class World implements IWorld {
     private entityPool: EntityPool;
     private componentManager: ComponentManager;
     private systemManager: SystemManager;
-    private lastUpdateTime: number = 0;
+    /**固定步长时钟：把不稳定的渲染 dt 换成恒定步长的逻辑帧*/
+    private clock: FixedStepClock;
+    /**
+     * 当前逻辑帧号。
+     * 这是系统内唯一允许使用的时间单位 —— 所有状态时长、动画帧龄都以它为基准，
+     * 不直接使用渲染 dt，这样后续接帧同步时语义完全一致。
+     */
+    public frame: number = 0;
     private static _instance: World = null;
     private constructor() { }
     /**获取单实例 */
@@ -33,9 +42,15 @@ class World implements IWorld {
     }
 
     init() {
+        //启动闸门：资源未封盘前禁止拉起世界。
+        //System.init() 会在注册时同步读资源，若此时资源层还没就绪，
+        //拿到的就是空值或触发隐式加载，问题会在运行期才暴露。
+        resBridge.assertReady("World.init");
         this.entityPool = new EntityPool();
         this.componentManager = new ComponentManager();
         this.systemManager = new SystemManager();
+        this.clock = new FixedStepClock();
+        this.frame = 0;
         // this.systemManager.init();
         this.addBase()
     }
@@ -43,14 +58,19 @@ class World implements IWorld {
         this.entityPool = null;
         this.componentManager = null;
         this.systemManager = null;
+        this.clock = null;
+        this.frame = 0;
         // this.offAllBase();
     }
     update(dt: number) {
-        //统一时间步长为帧率 可由GameSetting配置
-        this.lastUpdateTime += dt;
-        if (this.lastUpdateTime >= gameParam.DT) {
-            this.lastUpdateTime -= gameParam.DT;
-            this.systemManager.update(gameParam.DT);
+        if (!this.clock) return;
+        // 把渲染帧的不稳定 dt 兑换成整数次固定步长 tick。
+        // 一次渲染帧可能需要补跑 0~N 个逻辑帧，超出上限就丢弃积压（防止死亡螺旋）。
+        const steps = this.clock.advance(dt);
+        for (let i = 0; i < steps; i++) {
+            // 先推进帧号再 tick：本帧内写入 enterFrame 的实体，帧龄从 0 开始计
+            this.frame++;
+            this.systemManager.update(this.clock.dt);
         }
     }
     /**
@@ -72,6 +92,7 @@ class World implements IWorld {
         this.registerComponent(EnemyAIComponent);
         this.registerComponent(HealthComponent);
         this.registerComponent(DamageComponent);
+        this.registerComponent(MonsterStateComponent);
         this.registerSystem(new InputSystem(), 0);
         this.registerSystem(new EnemySpawnSystem(), 5);
         this.registerSystem(new WeaponSystem(), 90);
@@ -80,11 +101,17 @@ class World implements IWorld {
         this.registerSystem(new BulletDirSystem(), 103);
         this.registerSystem(new BulletSystem(), 105);
         this.registerSystem(new DamageSystem(), 120);
+        // 状态机必须排在伤害结算之后：DamageSystem 置 hurtThisFrame，状态机当帧消费
+        this.registerSystem(new MonsterStateSystem(), 125);
         this.registerSystem(new DeathSystem(), 130);
         this.registerSystem(new PosSynSystem(), 200);
         this.registerSystem(new FaceDirectionSystem(), 201);
+        // 怪物表现接管怪物节点的 position/scale/angle/color，必须在 PosSynSystem 之后
+        this.registerSystem(new MonsterVisualSystem(), 202);
         this.registerSystem(new WeaponSyncSystem(), 209);
         this.registerSystem(new AnimPlaySystem(), 500);
+        // 校验和放最后，确保拿到的是本帧全部逻辑写入之后的状态
+        this.registerSystem(new ChecksumSystem(), 1000);
     }
 
     offAllBase() {

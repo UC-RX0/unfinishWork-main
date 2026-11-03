@@ -2,7 +2,7 @@ import { Asset, assetManager, AssetManager, instantiate, JsonAsset, Node, Prefab
 import { gameParam } from "../game/GameSetting";
 
 
-interface IRes {
+export interface IRes {
     name: string;
     type: typeof Asset.name;
     data: Asset;
@@ -11,6 +11,8 @@ interface IRes {
  * @description ResManager 相当于对项目文件夹进行管理
  * 每一个key对应一个文件夹
  * 每一个key下可以有多个资源 每一个资源都有一个名称 例如：Actor、Actor2、Actor3等
+ * 异步方法过多 无法在同步代码块中执行资源加载的方法
+ * 必须有一个同步方法来获取加载完成的资源 没有则throw错误 使用try-catch捕获错误
  * */
 class ResManager {
     private constructor() { }
@@ -36,6 +38,31 @@ class ResManager {
      * @description 实质上双线并行的方法不确定是否有效，感觉十分冗余，因为不做GC的话 用双线其实也没有什么作用
     */
     private loadedResMap: Map<string, IRes[]> = new Map();
+    /**
+     * 是否已封盘。
+     * ResBridge.boot() 全部加载完成后会调用 seal()，
+     * 此后所有异步加载入口都会抛错，强制运行期只能走 ResBridge 的同步访问。
+     */
+    private sealed: boolean = false;
+    /**封盘：关闭底层异步加载能力*/
+    public seal(): void {
+        this.sealed = true;
+        console.log("[ResManager] 已封盘，运行期禁止任何异步资源加载");
+    }
+    /**是否已封盘*/
+    public get isSealed(): boolean {
+        return this.sealed;
+    }
+    /**封盘守卫*/
+    private assertUnsealed(api: string): void {
+        if (this.sealed) {
+            throw new Error(
+                `[ResManager] 资源层已封盘，禁止在运行期调用 ${api}。\n` +
+                `ECS 内部不允许异步加载：请把该资源加入 AssetManifest，` +
+                `由 ResBridge 在启动期统一加载，运行期改用 resBridge 的同步接口。`
+            );
+        }
+    }
     // private bundleArr: string[] = [];
     //#region获取分包
     public getBundle(bundleName: string): Promise<AssetManager.Bundle> {
@@ -66,8 +93,10 @@ class ResManager {
      * @returns void 该方法仅作为加载资源 不返回资源
     */
     loadAsset(key: string, type: typeof Asset = Asset, name: string, bundle?: string) {
+        this.assertUnsealed(`loadAsset(${key}, ${name})`);
         return new Promise<void>(async (resolve, reject) => {
-            let url = key + "/" + name;
+            // key 为空串时表示资源位于 resources 根目录，此时 url 就是 name 本身
+            let url = key ? key + "/" + name : name;
             console.log("资源加载Key", key);
             // 如果已经加载过该资源 则直接返回该资源
             if (this.resMap.has(key)) {
@@ -110,11 +139,11 @@ class ResManager {
      * @returns void 该方法仅作为加载资源 不返回资源
     */
     loadDir(url: string, type?: typeof Asset, bundle?: string, onProgress?: (v: number) => void) {
+        this.assertUnsealed(`loadDir(${url})`);
         return new Promise<void>(async (resolve, reject) => {
             if (this.resMap.has(url)) {
-                let res = this.resMap.get(url);
-                // 如果该key值有资源 则直接重新刷新该资源，防止重复加载相同资源或者说有单个资源提前污染缓存
-                res = [];
+                // 重置该 key 下的缓存，防止重复加载时与已存在的单项资源叠加导致重复
+                this.resMap.set(url, []);
             }
             const bundleAsset = bundle ? await this.getBundle(bundle) : resources;
             if (!bundleAsset) {
@@ -196,6 +225,7 @@ class ResManager {
      * @returns 资源数组 如果只有一个资源 则返回该资源
     */
     async getAssetByName(key: string, name: string, bundle?: string, type?: typeof Asset) {
+        this.assertUnsealed(`getAssetByName(${key}, ${name})`);
         // let key = url.replace("/" + name, "");
         let url = key + "/" + name;
         let res: IRes[] = this.loadedResMap.get(key);
@@ -216,6 +246,7 @@ class ResManager {
     }
     //按照类型获取资源
     async getAssetByType(key: string, type: typeof Asset, name?: string, bundle?: string) {
+        this.assertUnsealed(`getAssetByType(${key})`);
         let res: IRes[] = this.loadedResMap.get(key);
         if (!res) {
             res = await this.Asset2Load(key, name, type, bundle);
@@ -241,6 +272,7 @@ class ResManager {
      * @returns 资源
     */
     async getAssetByPath(key: string, name?: string, bundle?: string, type?: typeof Asset) {
+        this.assertUnsealed(`getAssetByPath(${key})`);
         let res: IRes[] = this.loadedResMap.get(key);
         if (!res) {
             res = await this.Asset2Load(key, name, type, bundle);
@@ -258,9 +290,10 @@ class ResManager {
     /**Prefab对象池 用路径作为键   值为Prefab对象数组  */
     private NodePool: Map<string, Node[]> = new Map();
     public async getNodeFromPool(key: string, name: string) {
+        this.assertUnsealed(`getNodeFromPool(${name})`);
         let url = name;
         let pool = this.getPool(url);
-        if (pool.length > 0){
+        if (pool.length > 0) {
             return pool.pop();
         }
         // 如果对象池中没有 则创建一个节点
@@ -311,7 +344,15 @@ class ResManager {
         if (prefab) {
             item = prefab.find((item) => item.name === name);
         }
-        return item.data as Prefab;
+        // 原来这里在 item 为 null 时会直接 .data 造成空引用崩溃
+        return item ? (item.data as Prefab) : null;
+    }
+    /**
+     * @description 读取某个 key 下已缓存的全部资源（只读）
+     * 供 ResBridge 在启动期构建强类型索引使用
+     */
+    public getAssetsByKey(key: string): IRes[] {
+        return this.resMap.get(key) || [];
     }
     public getSpriteFrames(key: string): SpriteFrame[] {
         let spriteFrames = this.resMap.get(key);

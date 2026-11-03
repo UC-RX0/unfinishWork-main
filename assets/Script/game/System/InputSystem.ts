@@ -1,8 +1,8 @@
 
 import { ISystem } from "../Base/ISystem";
 import { PlayerInputComponent, VelocityComponent } from "../Component";
+import { copyVec2 } from "../Math/MathUtil";
 import { ComponentClass } from "../tool/ComponentManager";
-import { Blackboard } from "../tool/Board";
 import { inputMgr } from "../../core/manager/InputManager";
 
 export class InputSystem extends ISystem {
@@ -21,7 +21,7 @@ export class InputSystem extends ISystem {
             const input = inputMgr.getInput(playerIndex);
             if (!input) continue;
             const vel = this.world.getComp(id, VelocityComponent);
-            vel.direction.set(input.direction);
+            copyVec2(vel.direction, input.direction);
             vel.speed = input.speed;
         }
     }

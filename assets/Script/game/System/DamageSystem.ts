@@ -1,4 +1,4 @@
-import { Color, Sprite, Vec3 } from "cc";
+import { Color, Sprite } from "cc";
 import { ISystem } from "../Base/ISystem";
 import { AnimComponent, BulletComponent, PlayerInputComponent, PosComponent, VelocityComponent, ViewComponent } from "../Component";
 import { IState } from "../Component/AnimComponent";
@@ -7,6 +7,8 @@ import { EnemyAIComponent } from "../Component/EnemyAIComponent";
 import { EnemyComponent } from "../Component/EnemyComponent";
 import { HealthComponent } from "../Component/HealthComponent";
 import { HitCooldownComponent } from "../Component/HitCooldownComponent";
+import { BATTLE_CONFIG } from "../Config/BattleConfig";
+import { distanceSq } from "../Math/MathUtil";
 import { ComponentClass } from "../tool/ComponentManager";
 
 export class DamageSystem extends ISystem {
@@ -39,10 +41,13 @@ export class DamageSystem extends ISystem {
                 // 子弹打怪物
                 if (isBullet && this.world.hasComp(target, EnemyAIComponent)) {
                     if (dealerAnim && dealerAnim.state === IState.Explode) continue;
-                    let dist = Vec3.distance(dealerPos.pos, targetPos.pos);
-                    if (dist <= DamageComponent.DEFAULT_RADIUS) {
+                    const radius = DamageComponent.DEFAULT_RADIUS;
+                    let distSq = distanceSq(dealerPos.pos.x, dealerPos.pos.y, targetPos.pos.x, targetPos.pos.y);
+                    if (distSq <= radius * radius) {
                         targetHp.health -= dealerDmg.damage;
                         targetHp.flashTimer = 0.15;
+                        // 标记本帧受击，MonsterStateSystem 会消费它并切到 Hit 状态
+                        targetHp.hurtThisFrame = true;
                         let targetView = this.world.getComp(target, ViewComponent);
                         if (targetView && targetView.node) {
                             let sprite = targetView.node.getComponent(Sprite);
@@ -63,10 +68,17 @@ export class DamageSystem extends ISystem {
                         if (cooldown.timer < cooldown.cooldown) continue;
                         cooldown.timer = 0;
                     }
-                    let range = enemyComp ? enemyComp.attackRange : 80;
-                    let dist = Vec3.distance(dealerPos.pos, targetPos.pos);
-                    if (dist <= range) {
+                    let range = BATTLE_CONFIG.enemyAttackRange;
+                    let distSq = distanceSq(dealerPos.pos.x, dealerPos.pos.y, targetPos.pos.x, targetPos.pos.y);
+                    if (distSq <= range * range) {
                         targetHp.health -= dealerDmg.damage;
+                        console.log("player hit");
+                        targetHp.flashTimer = 0.15;
+                        let targetView = this.world.getComp(target, ViewComponent);
+                        if (targetView && targetView.node) {
+                            let sprite = targetView.node.getComponent(Sprite);
+                            if (sprite) sprite.color = Color.RED;
+                        }
                         if (targetAnim) targetAnim.nextState = IState.GetAttack;
                     }
                 }

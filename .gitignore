@@ -22,3 +22,14 @@ node_modules/
 # WebStorm
 #//////////////////////////
 .idea/
+
+#//////////////////////////
+# 本地工具与 Agent 工作区
+#//////////////////////////
+.workbuddy/
+.dsh/
+funplay-cocos-mcp.config.json
+settings/.mcp-port.json
+settings/.mcp-version
+settings/mcp-server.json
+settings/tool-manager.json

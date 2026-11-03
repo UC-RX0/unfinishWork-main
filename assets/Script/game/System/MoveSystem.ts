@@ -2,6 +2,8 @@
 import { ISystem } from "../Base/ISystem";
 import { AnimComponent, BulletComponent, HealthComponent, PosComponent, VelocityComponent } from "../Component";
 import { IState } from "../Component/AnimComponent";
+import { MonsterStateComponent } from "../Component/MonsterStateComponent";
+import { lengthSq } from "../Math/MathUtil";
 import { ComponentClass } from "../tool/ComponentManager";
 //  移动系统
 //  优先值低于InputSystem
@@ -27,8 +29,10 @@ export class MoveSystem extends ISystem {
             let isBullet = this.world.hasComp(id, BulletComponent);
             let health = this.world.getComp(id, HealthComponent);
             let isDead = health && health.health <= 0;
-            if (anim && !isBullet && !isDead && anim.nextState === null && anim.state !== IState.Attack) {
-                if (velocityComponent.direction.lengthSqr() > 0.01) {
+            // 怪物有独立的状态机，动画状态不再由这里推
+            let isMonster = this.world.hasComp(id, MonsterStateComponent);
+            if (!isMonster && anim && !isBullet && !isDead && anim.nextState === null && anim.state !== IState.Attack) {
+                if (lengthSq(velocityComponent.direction.x, velocityComponent.direction.y) > 0.01) {
                     anim.nextState = IState.Walk;
                 }
                 else {

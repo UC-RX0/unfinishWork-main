@@ -3,6 +3,12 @@ import { ISystem } from "./ISystem";
 
 
 export interface IWorld {
+    /**
+     * 当前逻辑帧号。
+     * 系统内所有"持续多少帧"的逻辑（状态时长、动画帧龄、冷却）都必须基于它，
+     * 不允许直接使用渲染 dt —— 这是接帧同步的前提。
+     */
+    readonly frame: number;
     //#region 实体管理
     /**创建实体*/
     createEntity(): Entity;

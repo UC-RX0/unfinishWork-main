@@ -1,8 +1,8 @@
+import { PathEnum, UIEnum } from "../../core/manager/UIManager";
+import { resBridge } from "../../core/resource/ResBridge";
 import { ISystem } from "../Base/ISystem";
 import { AnimComponent, BulletComponent, ViewComponent } from "../Component";
-import { IState } from "../Component/AnimComponent";
 import { ComponentClass } from "../tool/ComponentManager";
-import { WeaponSystem } from "./WeaponSystem";
 
 
 //优先级105
@@ -18,7 +18,8 @@ export class BulletSystem extends ISystem {
             let { node } = this.world.getComp(entity, ViewComponent);
             let anim = this.world.getComp(entity, AnimComponent);
             if (anim && anim.isComplete) {
-                WeaponSystem.bulletPool.put(node);
+                // 回收动作收敛到过渡层，BulletSystem 不再反向依赖 WeaponSystem 的静态池
+                resBridge.recycle(PathEnum.Bullet1, UIEnum.Bullet2, node);
                 this.world.removeEntity(bulletComponent.entity);
             }
         }

@@ -1,5 +1,10 @@
-import { _decorator, Asset, Component, director, find, instantiate, Node, Prefab, Vec3, Widget } from 'cc';
-import { resMgr } from './ResManager';
+import { _decorator, Asset, BlockInputEvents, Component, director, find, instantiate, Node, Prefab, Vec3, Widget } from 'cc';
+import { resBridge } from '../resource/ResBridge';
+import { PathEnum, UIEnum } from '../resource/ResEnum';
+
+//资源枚举已迁移至 core/resource/ResEnum.ts，此处重新导出保持既有 import 路径可用
+export { PathEnum, UIEnum } from '../resource/ResEnum';
+
 export enum LayerEnum {
     /**主视图层级*/
     MainLayer = 1,
@@ -54,38 +59,41 @@ class UIManager {
             this.layerMap.set(LayerEnum[layer], node);
             widget.updateAlignment();
         }
+        let node = this.layerMap.get(LayerEnum.LockLayer);
+        node.addComponent(BlockInputEvents);
+        node.active = false;
         // console.log("初始化层级节点", this.layerMap);
-        new UIHelper().init();
+        // 必须先置位再注入UI：原实现把 isInit 放在注入之后，
+        // 导致 register() 开头的 !isInit 判断直接 return，UI 从未真正注册成功
         this.isInit = true;
+        new UIHelper().init();
     }
 
     /**
      * @description 注册UI节点并向节点池中添加节点
-     * 要新增一个回响时间 防止在初始化前调用注册方法
+     * 资源已由 ResBridge 在启动期预加载完毕，因此这里改为纯同步实现
      * */
-    async register(path: string, ui: UIEnum, layer: LayerEnum, type?: new (...args: any[]) => Asset) {
+    register(path: string, ui: UIEnum, layer: LayerEnum, type?: new (...args: any[]) => Asset) {
         if (!this.isInit) {
-            return
+            console.warn(`[UIManager] 未初始化，跳过注册 ${ui}`);
+            return;
         }
         let node = this.layerMap.get(layer);
         if (!node) {
             console.error(`层${layer}节点不存在`);
             return;
         }
-        // 加载Prefab资源
-        let prefab = await resMgr.getAssetByName(path, ui) as Prefab;
+        // 同步取预制体：缺失会在启动期直接抛错，不会走到这里
+        let prefab = resBridge.getPrefab(path, ui);
         if (!prefab) {
-            console.error(`资源${path}不存在`);
+            console.error(`资源${path}/${ui}不存在`);
             return;
         }
         let uiNode = instantiate(prefab);
         this.uiMap.set(ui, uiNode);
-        console.log(`注册成功`, this.uiMap);
-        // resMgr.putNodeToPool(uiNode, path, ui);
-
     }
     /**显示UI节点*/
-    async showUI(ui: UIEnum, layer: LayerEnum, key?: string, ...params: any[]) {
+    showUI(ui: UIEnum, layer: LayerEnum, key?: string, ...params: any[]) {
         if (!this.isInit) {
             return
         }
@@ -137,34 +145,17 @@ class UIManager {
         return this.layerMap.get(layer);
     }
 }
-export enum PathEnum {
-    /**角色UI*/
-    Actor = "Prefab/Actor",
-    ActorIdle = "texture/actor/idle",
-    ActorRun = "texture/actor/run",
-    Bullet1 = "Prefab/Bullet",
-    Bullet1Idle = "texture/weapon/weapon1/idle",
-    Bullet1Attack = "texture/weapon/weapon1/attack",
-    Weapon = "Prefab/Weapon",
-    Enemy = "Prefab/Monster",
-}
 /**
  * 用于加载Prefab资源
+ * PathEnum / UIEnum 已迁移至 core/resource/ResEnum.ts，与本文件顶部重新导出
 */
-export enum UIEnum {
-    /**角色UI*/
-    Actor = "Actor",
-    /**子弹UI*/
-    Bullet2 = "Bullet2",
-    /**武器UI*/
-    Weapon1 = "Weapon1",
-    /**怪物UI*/
-    Enemy = "Monster",
-}
 class UIHelper {
     /**加载UI节点*/
     init() {
+        console.log("UIHelper开始工作，正在向ResMgr中注入UI资源........")
         uiMgr.register(PathEnum.Actor, UIEnum.Actor, LayerEnum.GameLayer, Prefab);
+        console.log("UIHelper注入UI资源完成");
+
     }
 }
 export const uiMgr = UIManager.instance;

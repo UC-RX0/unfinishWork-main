@@ -1,5 +1,6 @@
 import { ISystem } from "../Base/ISystem";
 import { OwnerComponent, VelocityComponent, ViewComponent, WeaponComponent } from "../Component";
+import { copyVec2, lengthSq } from "../Math/MathUtil";
 import { ComponentClass } from "../tool/ComponentManager";
 
 export class WeaponSyncSystem extends ISystem {
@@ -18,8 +19,8 @@ export class WeaponSyncSystem extends ISystem {
             if (!node) continue;
             // 旋转根节点（Body 的 parent），不改 Body 本身的 angle
             let weaponRoot = node.parent || node;
-            if (direction.lengthSqr() > 0.001) {
-                weaponComponent.aimDirection.set(direction);
+            if (lengthSq(direction.x, direction.y) > 0.001) {
+                copyVec2(weaponComponent.aimDirection, direction);
                 let worldAngle = Math.atan2(direction.y, direction.x) * 180 / Math.PI;
                 if (direction.x < 0) {
                     weaponRoot.angle = 180 - worldAngle;

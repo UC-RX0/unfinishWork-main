@@ -1,5 +1,6 @@
 import { ISystem } from "../Base/ISystem";
 import { BulletComponent, VelocityComponent, ViewComponent, WeaponComponent } from "../Component";
+import { lengthSq } from "../Math/MathUtil";
 import { ComponentClass } from "../tool/ComponentManager";
 
 //优先级103
@@ -14,7 +15,7 @@ export class BulletDirSystem extends ISystem {
             let vel = this.world.getComp(entity, VelocityComponent);
             let { node } = this.world.getComp(entity, ViewComponent);
             let dir = vel.direction;
-            if (dir.length() > 0) {
+            if (lengthSq(dir.x, dir.y) > 0) {
                 node.angle = Math.atan2(dir.y, dir.x) * 180 / Math.PI;
             }
         }

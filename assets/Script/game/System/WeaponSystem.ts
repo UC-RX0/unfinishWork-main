@@ -1,27 +1,24 @@
-import { Node, Vec2 } from "cc";
+import { Node } from "cc";
 import { inputMgr } from "../../core/manager/InputManager";
+import { LayerEnum, PathEnum, UIEnum, uiMgr } from "../../core/manager/UIManager";
+import { resBridge } from "../../core/resource/ResBridge";
 import { ISystem } from "../Base/ISystem";
 import { AnimComponent, BulletComponent, OwnerComponent, PlayerInputComponent, PosComponent, VelocityComponent, ViewComponent, WeaponComponent } from "../Component";
-import { ComponentClass } from "../tool/ComponentManager";
-import { resMgr } from "../../core/manager/ResManager";
-import { LayerEnum, PathEnum, UIEnum, uiMgr } from "../../core/manager/UIManager";
-import { DamageComponent } from "../Component/DamageComponent";
 import { IState } from "../Component/AnimComponent";
-import { GameLaunch } from "../../GameLaunch";
-import { NodePool } from "../tool/NodePool";
+import { DamageComponent } from "../Component/DamageComponent";
+import { BATTLE_CONFIG } from "../Config/BattleConfig";
+import { copyVec2, Vec2Like } from "../Math/MathUtil";
+import { ComponentClass } from "../tool/ComponentManager";
 
 //优先级90
 
 export class WeaponSystem extends ISystem {
     requiredComponents: ComponentClass<any>[] = [WeaponComponent, OwnerComponent];
-    static bulletPool: NodePool = null;
 
     init(): void {
         this.enable = true;
-        if (!WeaponSystem.bulletPool) {
-            let prefab = resMgr.getPrefab(PathEnum.Bullet1, UIEnum.Bullet2);
-            WeaponSystem.bulletPool = new NodePool(prefab);
-        }
+        // 子弹预制体与序列帧均由 ResBridge 在启动期预加载，
+        // 这里不再需要持有 NodePool / 取 Prefab，运行期零异步。
     }
 
     update(dt: number): void {
@@ -52,18 +49,18 @@ export class WeaponSystem extends ISystem {
             // 攻击动画帧事件 → 发射子弹
             if (weaponAnim.currentTrigger === "spawn_bullet") {
                 weaponAnim.currentTrigger = '';
-                let direction = weaponComponent.aimDirection.clone();
-                this.createBullet(ownerId, direction, weaponNode);
+                // 直接传组件里的向量引用，createBullet 内部立刻拷贝，安全且零分配
+                this.createBullet(ownerId, weaponComponent.aimDirection, weaponNode);
             }
 
         }
     }
 
-    private createBullet(ownerId: number, direction: Vec2, weaponNode: Node) {
+    private createBullet(ownerId: number, direction: Vec2Like, weaponNode: Node) {
         let entity = this.world.createEntity();
         let posComp: PosComponent = this.world.addComp(entity.id, PosComponent);
         let ownerPos = this.world.getComp(ownerId, PosComponent);
-        if (ownerPos) posComp.pos.set(ownerPos.pos);
+        if (ownerPos) copyVec2(posComp.pos, ownerPos.pos);
         let velComp: VelocityComponent = this.world.addComp(entity.id, VelocityComponent);
         let bulletComp: BulletComponent = this.world.addComp(entity.id, BulletComponent);
         let viewComp: ViewComponent = this.world.addComp(entity.id, ViewComponent);
@@ -72,24 +69,25 @@ export class WeaponSystem extends ISystem {
         let anim = this.world.addComp(entity.id, AnimComponent);
         anim.configs.set(IState.fly, {
             type: 'sequence',
-            frames: resMgr.getSpriteFrames("texture/bullet/bullet2"),
+            frames: resBridge.getFrames(PathEnum.BulletFly),
             interval: 999,
             loop: true,
         } as any);
         anim.configs.set(IState.Explode, {
             type: 'sequence',
-            frames: GameLaunch.explodeFrames,
+            frames: resBridge.getFrames(PathEnum.Explosion),
             interval: 0.06,
             loop: false,
             events: { 0: "damage" },
         } as any);
         anim.state = IState.fly;
 
-        viewComp.node = WeaponSystem.bulletPool.get();
+        // 直接从池中取节点：预热过的实例在这里复用，池空才会 instantiate
+        viewComp.node = resBridge.spawn(PathEnum.Bullet1, UIEnum.Bullet2);
         ownerComp.ownerId = ownerId;
-        damageComp.damage = 10;
-        velComp.direction.set(direction);
-        velComp.speed = 300;
+        damageComp.damage = BATTLE_CONFIG.bulletDamage;
+        copyVec2(velComp.direction, direction);
+        velComp.speed = BATTLE_CONFIG.bulletSpeed;
         bulletComp.entity = entity;
         viewComp.node.setParent(uiMgr.getLayer(LayerEnum.GameLayer));
         if (weaponNode) viewComp.node.setPosition(weaponNode.position.clone());
