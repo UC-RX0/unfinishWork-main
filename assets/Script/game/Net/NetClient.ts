@@ -1,4 +1,4 @@
-import { ChecksumMsg, FrameMsg, InputMsg, ServerMsg, WelcomeMsg } from "./Protocol";
+import { ChecksumMsg, FrameMsg, InputMsg, ServerMsg, StartMsg, WelcomeMsg } from "./Protocol";
 
 /**
  * @description WebSocket 客户端封装
@@ -11,7 +11,11 @@ export class NetClient {
 
     /**收到 welcome 后拿到的服务端分配信息*/
     public welcome: WelcomeMsg = null;
+    /**房间成型后的开局通知（房间人数已确定，可以开始建世界了）*/
+    public startMsg: StartMsg = null;
 
+    /**开局通知回调：房间人数已定，可以建世界了*/
+    public onStart: (msg: StartMsg) => void = null;
     public onFrame: (msg: FrameMsg) => void = null;
     public onRoster: (players: number[]) => void = null;
     public onDesync: (msg: any) => void = null;
@@ -54,6 +58,11 @@ export class NetClient {
                         clearTimeout(timer);
                         resolve(msg);
                     }
+                    return;
+                }
+                if (msg.t === 'start') {
+                    this.startMsg = msg;
+                    if (this.onStart) this.onStart(msg);
                     return;
                 }
                 if (msg.t === 'frame') {

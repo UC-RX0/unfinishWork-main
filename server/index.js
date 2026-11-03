@@ -28,6 +28,14 @@ const LOGIC_FPS = 60;
 const FRAME_MS = Math.round(1000 / LOGIC_FPS);
 /**房间人数上限*/
 const MAX_PLAYERS = 2;
+/**
+ * 开局所需人数。
+ * 帧同步要求所有客户端从【同一帧、同一份世界】开始跑，
+ * 所以房间没满之前不发帧 —— 否则先到的人不知道后到的人存在，
+ * 两端实体集合不同，必然分叉。
+ * 单人调试可以设 LOCKSTEP_MIN_PLAYERS=1。
+ */
+const MIN_PLAYERS = Math.min(MAX_PLAYERS, Number(process.env.LOCKSTEP_MIN_PLAYERS || MAX_PLAYERS));
 /**端口*/
 const PORT = 7788;
 /**固定随机种子，由服务端下发，保证所有客户端初始随机序列一致*/
@@ -43,8 +51,26 @@ const checksums = new Map();
 let nextIndex = 0;
 let frame = 0;
 let loop = null;
+/**是否已开局*/
+let started = false;
 /**各客户端最近一次上报的帧号，用于观察客户端推进速度 */
 const clientFrames = new Map();
+
+/**
+ * 房间人数够了才开局。
+ * 开局前不发任何帧，所有客户端都用同一份 roster 建世界。
+ */
+function maybeStart() {
+    if (started) return;
+    if (clients.size < MIN_PLAYERS) {
+        console.log(`[server] 等待开局：${clients.size}/${MIN_PLAYERS} 人`);
+        return;
+    }
+    started = true;
+    console.log(`[server] 房间成型（${clients.size} 人），开局，起始帧=${frame}`);
+    broadcast({ t: 'start', playerCount: clients.size, seed: SEED, frame, logicFps: LOGIC_FPS });
+    startLoop();
+}
 
 function send(ws, obj) {
     if (ws.readyState === 1) ws.send(JSON.stringify(obj));
@@ -158,7 +184,7 @@ wss.on('connection', (ws) => {
         logicFps: LOGIC_FPS,
     });
     broadcast({ t: 'roster', players: roster() });
-    startLoop();
+    maybeStart();
 
     ws.on('message', (raw) => {
         let msg;
@@ -188,7 +214,10 @@ wss.on('connection', (ws) => {
         nextIndex = Math.max(0, nextIndex - 1);
         console.log(`[server] 玩家 ${index} 离开，当前 ${clients.size} 人`);
         broadcast({ t: 'roster', players: roster() });
-        if (clients.size === 0) stopLoop();
+        if (clients.size === 0) {
+            stopLoop();
+            started = false;
+        }
     });
 });
 

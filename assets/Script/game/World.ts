@@ -10,6 +10,7 @@ import { AnimComponent, BulletComponent, DamageComponent, EnemyAIComponent, Enem
 import { AISystem, AnimRenderSystem, AnimTickSystem, BulletDirSystem, BulletSystem, ChecksumSystem, DamageSystem, DeathSystem, EnemySpawnSystem, FaceDirectionSystem, InputSystem, MonsterStateProbeSystem, MonsterStateSystem, MonsterVisualSystem, MoveSystem, PosSynSystem, ScriptedInputSystem, SnapshotTestSystem, WeaponAimSystem, WeaponViewSystem, WeaponSystem } from './System';
 import { MonsterStateComponent } from './Component/MonsterStateComponent';
 import { FixedStepClock } from './tool/FixedStepClock';
+import { GameTestRunner } from './Test/GameTestRunner';
 import { logicRng } from './Math/PRNG';
 import { FrameInput, FrameInputBuffer, IFrameInputSource } from './Input/FrameInput';
 import { LocalInputSource } from './Input/LocalInputSource';
@@ -277,6 +278,9 @@ class World implements IWorld {
         this.registerSystem(new SnapshotTestSystem(), 1001);
         // 怪物状态探针：统计四态覆盖情况
         this.registerSystem(new MonsterStateProbeSystem(), 1002);
+        // 运行时断言：检查位置/血量/方向/实体数这些"任何一帧都必须成立"的不变量
+        // 默认 enable=false，验证时打开 GameTestRunner.enabled 即可
+        this.registerSystem(new GameTestRunner(), 1003);
     }
 
     offAllBase() {

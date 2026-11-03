@@ -59,6 +59,22 @@ export interface RosterMsg {
     players: number[];
 }
 
+/**
+ * 开局通知
+ * 房间人数凑齐后服务端下发这一条，客户端【必须等它到了才开始建世界】——
+ * 否则先到的客户端不知道后到的人存在，两端实体集合不同，必然分叉。
+ */
+export interface StartMsg {
+    t: 'start';
+    /**最终房间人数，客户端据此创建对应数量的玩家实体*/
+    playerCount: number;
+    /**随机种子*/
+    seed: number;
+    /**起始帧号*/
+    frame: number;
+    logicFps: number;
+}
+
 export interface DesyncMsg {
     t: 'desync';
     frame: number;
@@ -71,4 +87,4 @@ export interface FullMsg {
 }
 //#endregion
 
-export type ServerMsg = WelcomeMsg | FrameMsg | RosterMsg | DesyncMsg | FullMsg;
+export type ServerMsg = WelcomeMsg | StartMsg | FrameMsg | RosterMsg | DesyncMsg | FullMsg;

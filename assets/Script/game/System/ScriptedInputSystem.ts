@@ -25,6 +25,8 @@ export class ScriptedInputSystem extends ISystem {
     public static fireFromFrame: number = 90;
     /**绕圈时每多少帧转一次方向（90 帧 ≈ 1.5 秒）*/
     public static turnInterval: number = 90;
+    /**脚本控制的是哪个玩家（联机时由服务端分配的 playerIndex 决定）*/
+    public static localPlayerIndex: number = 0;
 
     /**复用的方向向量，避免每帧分配*/
     private dir: Vec2 = new Vec2();
@@ -51,13 +53,14 @@ export class ScriptedInputSystem extends ISystem {
 
         // 力度：走一半速度，走走停停更像真人操作
         const strength = (frame % 120 < 60) ? 100 : 40;
-        inputMgr.setInput(0, this.dir, strength);
+        const me = ScriptedInputSystem.localPlayerIndex;
+        inputMgr.setInput(me, this.dir, strength);
 
         // 射击：达到起始帧后一直按住
         if (mode === 'orbit' && frame >= ScriptedInputSystem.fireFromFrame) {
-            inputMgr.fireDown(0);
+            inputMgr.fireDown(me);
         } else {
-            inputMgr.fireUp(0);
+            inputMgr.fireUp(me);
         }
     }
 }

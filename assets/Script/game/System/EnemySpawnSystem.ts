@@ -6,6 +6,7 @@ import { HealthComponent } from "../Component/HealthComponent";
 import { HitCooldownComponent } from "../Component/HitCooldownComponent";
 import { MonsterStateComponent } from "../Component/MonsterStateComponent";
 import { BATTLE_CONFIG } from "../Config/BattleConfig";
+import { MonsterState, MonsterStateStats } from "../Config/MonsterState";
 import { setVec2 } from "../Math/MathUtil";
 import { logicRng } from "../Math/PRNG";
 import { resBridge } from "../../core/resource/ResBridge";
@@ -75,6 +76,8 @@ export class EnemySpawnSystem extends ISystem {
         let stateComp: MonsterStateComponent = this.world.addComp(entity.id, MonsterStateComponent);
         stateComp.seed = entity.id % 60;
         stateComp.enterFrame = this.world.frame;
+        // 出生时的初始状态（Idle）也要计数，否则"Idle 从未被进入"会被误判为没走到
+        MonsterStateStats.enterCount[MonsterState.Idle]++;
 
         // 计算出生点：四条边随机，全部走确定性随机
         const w = BATTLE_CONFIG.fieldHalfWidth;

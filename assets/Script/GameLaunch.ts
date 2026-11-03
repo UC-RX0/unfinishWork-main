@@ -1,17 +1,14 @@
-import { _decorator, Component, Node, Vec3 } from 'cc';
-import { LayerEnum, PathEnum, UIEnum, uiMgr } from './core/manager/UIManager';
+import { _decorator, Component } from 'cc';
+import { uiMgr } from './core/manager/UIManager';
 import { resBridge } from './core/resource/ResBridge';
 import type { IBootProgress } from './core/resource/ResBridge';
 import { BATTLE_CONFIG } from './game/Config/BattleConfig';
 import { logicRng } from './game/Math/PRNG';
-import { setVec2 } from './game/Math/MathUtil';
 import { NetClient } from './game/Net/NetClient';
 import { NetworkInputSource } from './game/Net/NetworkInputSource';
 import type { WelcomeMsg } from './game/Net/Protocol';
-import { ChecksumSystem } from './game/System';
-import { MonsterStateProbeSystem, ScriptedInputSystem } from './game/System';
-import { IState } from './game/Component/AnimComponent';
-import { AnimComponent, HealthComponent, OwnerComponent, PlayerInputComponent, PosComponent, VelocityComponent, ViewComponent, WeaponComponent } from './game/Component';
+import { createPlayers } from './game/SceneBuilder';
+import { ChecksumSystem, MonsterStateProbeSystem, ScriptedInputSystem } from './game/System';
 import { world } from './game/World';
 
 const { ccclass, property } = _decorator;
@@ -71,15 +68,33 @@ export class GameLaunch extends Component {
             console.log("[GameLaunch] 验证模式：脚本输入已接管玩家，怪物状态探针已开启");
         }
 
+        let seed = BATTLE_CONFIG.randomSeed;
+        let startFrame = 0;
+        let playerCount = 1;
+
+        if (welcome && this.net) {
+            // 必须等房间成型：人数没定下来就建世界，两端实体集合不同，必然分叉
+            if (!this.net.startMsg) {
+                await new Promise<void>((resolve) => {
+                    this.net.onStart = () => resolve();
+                });
+            }
+            const start = this.net.startMsg;
+            seed = start.seed;
+            startFrame = start.frame;
+            playerCount = start.playerCount;
+            console.log(`[GameLaunch] 房间成型（${playerCount} 人），起始帧 ${startFrame}`);
+        }
+
         // 随机源必须显式重置：模块级单例在重开一局时不会自动回到初始状态，
         // 不重置的话第二次进关的随机序列会接着上一次走，同一个 seed 也复现不出来
-        logicRng.restore(welcome ? welcome.seed : BATTLE_CONFIG.randomSeed);
+        logicRng.restore(seed);
         world.init();
 
         if (welcome && this.net) {
-            // 帧号必须与服务端对齐，否则输入缓冲里的帧号永远匹配不上
-            world.setStartFrame(welcome.frame);
-            this.setupNetworkInput(welcome);
+            world.setStartFrame(startFrame);
+            world.setPlayerCount(playerCount);
+            this.setupNetworkInput(welcome, playerCount);
         }
 
         this.buildScene();
@@ -89,17 +104,19 @@ export class GameLaunch extends Component {
     }
 
     /**把网络输入源接到 World：此后所有输入都来自服务端帧包*/
-    private setupNetworkInput(welcome: WelcomeMsg) {
+    private setupNetworkInput(welcome: WelcomeMsg, playerCount: number) {
         const source = new NetworkInputSource(world.getInputBuffer(), this.net);
         source.localPlayerIndex = welcome.playerIndex;
 
         this.net.onFrame = (msg) => source.applyFrame(msg);
         this.net.onRoster = (players) => {
             console.log(`[GameLaunch] 房间人数变化 ${players.length}`);
+            // 开局后人数再变就麻烦了：已经跑过的帧里没有新玩家的实体，
+            // 补建也来不及对齐历史帧。所以这里只提示，不自动补。
             world.setPlayerCount(players.length);
         };
 
-        world.setInputSource(source, welcome.playerCount);
+        world.setInputSource(source, playerCount);
         world.networkMode = true;
         // 定期上报校验和，服务端负责跨客户端比对
         ChecksumSystem.onChecksum = (frame, hex) => this.net.sendChecksum(frame, hex);
@@ -119,80 +136,9 @@ export class GameLaunch extends Component {
 
     /**创建场景内的初始实体（全同步）*/
     private buildScene() {
-        // 联机时按服务端下发的人数逐个创建玩家；单机时为 1
-        const count = world.getPlayerCount();
-        for (let i = 0; i < count; i++) {
-            const actorId = this.createActor(i);
-            this.createWeapon(actorId);
-        }
-    }
-
-    /**创建玩家实体*/
-    private createActor(playerIndex: number): number {
-        let { id } = world.createEntity();
-
-        world.addComp(id, PlayerInputComponent).playerIndex = playerIndex;
-        let vel = world.addComp(id, VelocityComponent);
-        vel.speed = BATTLE_CONFIG.playerSpeed;
-        const pos = world.addComp(id, PosComponent);
-        // 多玩家时横向错开出生点，避免完全重叠
-        setVec2(pos.pos, playerIndex * 150, 0);
-        //玩家生命值
-        world.addComp(id, HealthComponent).health = BATTLE_CONFIG.playerHealth;
-
-        // 玩家动画：idle + walk，序列帧直接同步取
-        let animComp: AnimComponent = world.addComp(id, AnimComponent);
-        animComp.configs.set(IState.Idle, {
-            type: 'sequence',
-            frames: resBridge.getFrames(PathEnum.ActorIdle),
-            interval: 0.1,
-            loop: true,
-        });
-        animComp.configs.set(IState.Walk, {
-            type: 'sequence',
-            frames: resBridge.getFrames(PathEnum.ActorRun),
-            interval: 0.1,
-            loop: true,
-        });
-
-        let node = resBridge.spawn(PathEnum.Actor, UIEnum.Actor);
-        node.setParent(uiMgr.getLayer(LayerEnum.GameLayer));
-        world.addComp(id, ViewComponent).node = node;
-
-        return id;
-    }
-
-    /**创建玩家武器实体*/
-    private createWeapon(ownerId: number) {
-        let parent = world.getComp(ownerId, ViewComponent).node;
-
-        let { id } = world.createEntity();
-        world.addComp(id, WeaponComponent);
-        world.addComp(id, OwnerComponent).ownerId = ownerId;
-
-        // 武器动画：idle（静态） + attack（带 spawn_bullet 事件）
-        let animComp: AnimComponent = world.addComp(id, AnimComponent);
-        animComp.configs.set(IState.Idle, {
-            type: 'sequence',
-            frames: resBridge.getFrames(PathEnum.Bullet1Idle),
-            interval: 1,
-            loop: true,
-        });
-        animComp.configs.set(IState.Attack, {
-            type: 'sequence',
-            frames: resBridge.getFrames(PathEnum.Bullet1Attack),
-            interval: 0.08,
-            loop: false,
-            events: { 2: 'spawn_bullet' },
-        });
-
-        let viewComp: ViewComponent = world.addComp(id, ViewComponent);
-        // spawn 返回的就是可用节点实例，原实现里又套了一层 instantiate，白白多创建了一个节点
-        let weaponRoot = resBridge.spawn(PathEnum.Weapon, UIEnum.Weapon1);
-        weaponRoot.setParent(parent);
-        weaponRoot.setPosition(Vec3.ZERO);
-        // 动画帧切换在 Body 节点上
-        viewComp.node = weaponRoot.getChildByName("Body") || weaponRoot;
+        // 建实体逻辑放在 SceneBuilder，编辑器和 headless 测试共用同一套，
+        // 否则两边行为不一致，headless 测出来的结论对编辑器就没意义
+        createPlayers(world, world.getPlayerCount());
     }
 
     onDestroy() {
