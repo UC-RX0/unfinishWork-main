@@ -1,4 +1,4 @@
-import { Node } from "cc";
+import { Node, director } from "cc";
 import { ISystem } from "../Base/ISystem";
 import { HealthComponent, PosComponent, VelocityComponent } from "../Component";
 import { MonsterStateComponent } from "../Component/MonsterStateComponent";
@@ -17,9 +17,9 @@ import { ComponentClass } from "../tool/ComponentManager";
 export class ChecksumSystem extends ISystem {
     requiredComponents: ComponentClass<any>[] = [];
 
-    /**把结果写到这个节点的名字上，方便外部观测；为空则不输出*/
+    /**探针节点：创建时就把校验和写进节点名，之后不再改名*/
     public static probeNode: Node = null;
-    /**在第几帧输出一次结果*/
+    /**开局后第几帧输出一次结果*/
     public static probeFrame: number = 360;
     /**最近一次的校验和（十六进制）*/
     public static lastHex: string = "";
@@ -86,9 +86,7 @@ export class ChecksumSystem extends ISystem {
         if (!this.probeDone && localFrame >= ChecksumSystem.probeFrame) {
             this.probeDone = true;
             ChecksumSystem.lastHex = sum.hex;
-            if (ChecksumSystem.probeNode) {
-                ChecksumSystem.probeNode.name = `DET#local=${localFrame}/frame=${frame}#sum=${sum.hex}#count=${count}`;
-            }
+            this.createProbe(`DET#local=${localFrame}/frame=${frame}#sum=${sum.hex}#count=${count}`);
         }
 
         // 联机时定期上报，服务端负责跨客户端比对，不一致就广播 desync
@@ -96,5 +94,24 @@ export class ChecksumSystem extends ISystem {
             && frame % ChecksumSystem.reportInterval === 0) {
             ChecksumSystem.onChecksum(frame, sum.hex);
         }
+    }
+
+    /**
+     * 创建探针节点。
+     * 把结果直接写进【创建时的名字】，之后不再依赖改名 —— 改名这条路径在
+     * 联机模式下出现过写不进去的情况，而"创建即带名字"没有这个风险。
+     */
+    private createProbe(name: string): Node {
+        if (ChecksumSystem.probeNode) return ChecksumSystem.probeNode;
+        const scene = director.getScene();
+        if (!scene) return null;
+        const canvas = scene.getChildByName("Canvas");
+        if (!canvas) return null;
+        const guide = canvas.getChildByName("GuideLayer");
+        if (!guide) return null;
+        const node = new Node(name);
+        node.parent = guide;
+        ChecksumSystem.probeNode = node;
+        return node;
     }
 }

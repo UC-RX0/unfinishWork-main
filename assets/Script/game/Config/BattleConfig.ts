@@ -76,6 +76,11 @@ export const BATTLE_CONFIG = {
      * true ：连接帧同步服务端，输入由 NetworkInputSource 从帧包解出
      */
     net: {
+        /**
+         * 联机开关。默认关闭 = 单机模式（输入由 LocalInputSource 采样）。
+         * 打开前请先启动服务端：cd server && npm start
+         * 连不上会自动降级回单机，不会卡住游戏启动。
+         */
         enabled: false,
         url: "ws://127.0.0.1:7788",
         maxPlayers: 2,

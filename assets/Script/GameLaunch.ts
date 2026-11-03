@@ -72,7 +72,6 @@ export class GameLaunch extends Component {
             this.setupNetworkInput(welcome);
         }
 
-        this.createDeterminismProbe();
         this.buildScene();
 
         this.isInit = true;
@@ -115,20 +114,6 @@ export class GameLaunch extends Component {
             const actorId = this.createActor(i);
             this.createWeapon(actorId);
         }
-    }
-
-    /**
-     * 确定性校验探针。
-     * ChecksumSystem 会在指定帧把整帧的逻辑校验和写进这个节点的名字，
-     * 外部（编辑器/自动化脚本）读节点名就能比对两次运行是否完全一致。
-     * 正式发布时可以整段删掉，不影响任何逻辑。
-     */
-    private createDeterminismProbe() {
-        const layer = uiMgr.getLayer(LayerEnum.GuideLayer);
-        if (!layer) return;
-        const probe = new Node("DET_PROBE");
-        probe.parent = layer;
-        ChecksumSystem.probeNode = probe;
     }
 
     /**创建玩家实体*/

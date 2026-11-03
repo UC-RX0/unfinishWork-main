@@ -43,6 +43,8 @@ const checksums = new Map();
 let nextIndex = 0;
 let frame = 0;
 let loop = null;
+/**各客户端最近一次上报的帧号，用于观察客户端推进速度 */
+const clientFrames = new Map();
 
 function send(ws, obj) {
     if (ws.readyState === 1) ws.send(JSON.stringify(obj));
@@ -75,6 +77,12 @@ function stopLoop() {
 function tick() {
     if (clients.size === 0) return;
     frame++;
+
+    // 每秒打一行客户端推进情况，用来观察客户端是否跟得上
+    if (frame % 60 === 0) {
+        const parts = Array.from(clientFrames.entries()).map(([i, f]) => `P${i}:${f}`).join(' ');
+        console.log(`[server] 服务端帧=${frame} 客户端最新帧 ${parts || '(无)'}`);
+    }
 
     // 每个玩家取"最近一次上报的输入"，盖章到本帧
     const inputs = [];
@@ -170,6 +178,7 @@ wss.on('connection', (ws) => {
                 fire: !!msg.fire,
             };
         } else if (msg.t === 'checksum') {
+            clientFrames.set(client.index, msg.frame);
             compareChecksum(msg, client.index);
         }
     });
