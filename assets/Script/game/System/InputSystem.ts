@@ -1,29 +1,44 @@
-
 import { ISystem } from "../Base/ISystem";
 import { PlayerInputComponent, VelocityComponent } from "../Component";
-import { copyVec2 } from "../Math/MathUtil";
+import { BATTLE_CONFIG } from "../Config/BattleConfig";
+import { INPUT_SCALE } from "../Input/FrameInput";
+import { setVec2 } from "../Math/MathUtil";
 import { ComponentClass } from "../tool/ComponentManager";
-import { inputMgr } from "../../core/manager/InputManager";
 
+/**
+ * @description 输入写入（优先级 0）
+ *
+ * 改造前：直接读 inputMgr 的最新状态。
+ * 问题在于"最新状态"属于渲染帧，不是逻辑帧 —— 一次渲染帧补跑两个逻辑帧时，
+ * 两个逻辑帧会读到同一份输入，这次点击到底算在哪一帧是不确定的；
+ * 反过来卡顿时又会漏掉中间帧的输入。帧同步下必须杜绝。
+ *
+ * 改造后：只从 world.getInput(当前帧号, 玩家) 读。
+ * 输入在进入逻辑帧之前就已经被量化并按帧号归位，
+ * 所以"第 N 帧用了什么输入"是完全确定的，可重放、可回滚。
+ */
 export class InputSystem extends ISystem {
     requiredComponents: ComponentClass<any>[] = [PlayerInputComponent, VelocityComponent];
 
-    init() {
-        //初始化系统
+    init(): void {
         this.enable = true;
     }
+
     update(dt: number): void {
-        //拿到所有玩家的ID
-        const entityID = this.world.query(PlayerInputComponent, VelocityComponent);
-        //根据输入状态更新速度
-        for (const id of entityID) {
-            const { playerIndex } = this.world.getComp(id, PlayerInputComponent);
-            const input = inputMgr.getInput(playerIndex);
+        const frame = this.world.frame;
+        const entityIds = this.world.query(...this.requiredComponents);
+
+        for (let i = 0; i < entityIds.length; i++) {
+            const id = entityIds[i];
+            const playerInput = this.world.getComp(id, PlayerInputComponent);
+            const input = this.world.getInput(frame, playerInput.playerIndex);
             if (!input) continue;
+
             const vel = this.world.getComp(id, VelocityComponent);
-            copyVec2(vel.direction, input.direction);
-            vel.speed = input.speed;
+
+            // 定点整数还原成浮点：这一步是确定的（整数除法 + 乘法，IEEE 正确舍入）
+            setVec2(vel.direction, input.dirX / INPUT_SCALE, input.dirY / INPUT_SCALE);
+            vel.speed = input.speed / INPUT_SCALE * BATTLE_CONFIG.playerSpeed;
         }
     }
-
 }

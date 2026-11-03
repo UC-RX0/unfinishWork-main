@@ -1,5 +1,4 @@
 import { Node } from "cc";
-import { inputMgr } from "../../core/manager/InputManager";
 import { LayerEnum, PathEnum, UIEnum, uiMgr } from "../../core/manager/UIManager";
 import { resBridge } from "../../core/resource/ResBridge";
 import { ISystem } from "../Base/ISystem";
@@ -41,8 +40,9 @@ export class WeaponSystem extends ISystem {
                 weaponAnim.nextState = IState.Idle;
             }
 
-            // 按射击 → 播放攻击动画
-            if (inputMgr.wantsToFire(playerIndex) && weaponAnim.state !== IState.Attack) {
+            // 按射击 → 播放攻击动画（开火信号来自本帧输入，不再直接读 inputMgr）
+            const frameInput = this.world.getInput(this.world.frame, playerIndex);
+            if (frameInput && frameInput.fire && weaponAnim.state !== IState.Attack) {
                 weaponAnim.nextState = IState.Attack;
             }
 

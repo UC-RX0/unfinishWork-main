@@ -7,9 +7,11 @@ import { ISystem } from './Base/ISystem';
 import { ComponentClass } from './tool/ComponentManager';
 import { IComponent } from './Base/IComponent';
 import { AnimComponent, BulletComponent, DamageComponent, EnemyAIComponent, EnemyComponent, HealthComponent, OwnerComponent, PlayerInputComponent, PosComponent, VelocityComponent, ViewComponent, WeaponComponent } from './Component';
-import { AISystem, AnimPlaySystem, BulletDirSystem, BulletSystem, ChecksumSystem, DamageSystem, DeathSystem, EnemySpawnSystem, FaceDirectionSystem, InputSystem, MonsterStateSystem, MonsterVisualSystem, MoveSystem, PosSynSystem, WeaponSyncSystem, WeaponSystem } from './System';
+import { AISystem, AnimRenderSystem, AnimTickSystem, BulletDirSystem, BulletSystem, ChecksumSystem, DamageSystem, DeathSystem, EnemySpawnSystem, FaceDirectionSystem, InputSystem, MonsterStateSystem, MonsterVisualSystem, MoveSystem, PosSynSystem, WeaponAimSystem, WeaponViewSystem, WeaponSystem } from './System';
 import { MonsterStateComponent } from './Component/MonsterStateComponent';
 import { FixedStepClock } from './tool/FixedStepClock';
+import { FrameInput, FrameInputBuffer, IFrameInputSource } from './Input/FrameInput';
+import { LocalInputSource } from './Input/LocalInputSource';
 import { resBridge } from '../core/resource/ResBridge';
 
 
@@ -31,6 +33,14 @@ class World implements IWorld {
      * 不直接使用渲染 dt，这样后续接帧同步时语义完全一致。
      */
     public frame: number = 0;
+    /**输入帧缓冲：按帧号存所有玩家的输入*/
+    private inputBuffer: FrameInputBuffer;
+    /**输入来源（本地采样 / 网络收包）*/
+    private inputSource: IFrameInputSource = null;
+    /**参与同步的玩家数量*/
+    private playerCount: number = 1;
+    /**是否因等待输入而卡住（锁步模式下会短暂出现）*/
+    public stalled: boolean = false;
     private static _instance: World = null;
     private constructor() { }
     /**获取单实例 */
@@ -51,6 +61,11 @@ class World implements IWorld {
         this.systemManager = new SystemManager();
         this.clock = new FixedStepClock();
         this.frame = 0;
+        this.inputBuffer = new FrameInputBuffer();
+        // 默认走本地采样；联机时调用 setInputSource 换成收包实现即可
+        this.inputSource = new LocalInputSource(this.inputBuffer);
+        this.playerCount = 1;
+        this.stalled = false;
         // this.systemManager.init();
         this.addBase()
     }
@@ -68,10 +83,46 @@ class World implements IWorld {
         // 一次渲染帧可能需要补跑 0~N 个逻辑帧，超出上限就丢弃积压（防止死亡螺旋）。
         const steps = this.clock.advance(dt);
         for (let i = 0; i < steps; i++) {
+            const next = this.frame + 1;
+
+            if (this.inputSource) {
+                // 为下一帧准备输入（本地采样 / 从网络包解出）
+                this.inputSource.produce(next, this.playerCount);
+                // 锁步等待：该帧输入没到齐就不推进，本渲染帧到此为止。
+                // 单机模式下 ready() 恒为 true，这里永远不会卡。
+                if (!this.inputSource.ready(next, this.playerCount)) {
+                    this.stalled = true;
+                    break;
+                }
+                this.stalled = false;
+                // 每 64 帧清理一次过旧输入，保留窗口供将来回滚使用
+                if ((next & 63) === 0) this.inputSource.prune(next);
+            }
+
             // 先推进帧号再 tick：本帧内写入 enterFrame 的实体，帧龄从 0 开始计
-            this.frame++;
+            this.frame = next;
             this.systemManager.update(this.clock.dt);
         }
+    }
+
+    /**
+     * @description 设置输入来源
+     * 单机：new LocalInputSource(buffer)
+     * 联机：换成收包的 NetworkInputSource，其余代码不用动
+     */
+    setInputSource(source: IFrameInputSource, playerCount: number = 1): void {
+        this.inputSource = source;
+        this.playerCount = playerCount;
+    }
+
+    /**逻辑层读取输入的唯一入口*/
+    getInput(frame: number, playerIndex: number): FrameInput | null {
+        return this.inputBuffer ? this.inputBuffer.get(frame, playerIndex) : null;
+    }
+
+    /**供外部（网络层）访问输入缓冲，用于塞入服务端下发的输入包*/
+    getInputBuffer(): FrameInputBuffer {
+        return this.inputBuffer;
     }
     /**
      * @description 添加组件 
@@ -93,23 +144,33 @@ class World implements IWorld {
         this.registerComponent(HealthComponent);
         this.registerComponent(DamageComponent);
         this.registerComponent(MonsterStateComponent);
+        //#region 逻辑段：只读写组件数据，不碰任何节点
         this.registerSystem(new InputSystem(), 0);
         this.registerSystem(new EnemySpawnSystem(), 5);
+        // 武器朝向要在 WeaponSystem 之前算好，本帧射击就能用上本帧方向
+        this.registerSystem(new WeaponAimSystem(), 10);
         this.registerSystem(new WeaponSystem(), 90);
         this.registerSystem(new AISystem(), 96);
         this.registerSystem(new MoveSystem(), 100);
-        this.registerSystem(new BulletDirSystem(), 103);
         this.registerSystem(new BulletSystem(), 105);
         this.registerSystem(new DamageSystem(), 120);
         // 状态机必须排在伤害结算之后：DamageSystem 置 hurtThisFrame，状态机当帧消费
         this.registerSystem(new MonsterStateSystem(), 125);
         this.registerSystem(new DeathSystem(), 130);
+        // 动画推进属于逻辑：frameIndex / currentTrigger 会影响射击等玩法时序
+        this.registerSystem(new AnimTickSystem(), 140);
+        //#endregion
+
+        //#region 渲染段：只读组件，写节点，不回写逻辑
         this.registerSystem(new PosSynSystem(), 200);
         this.registerSystem(new FaceDirectionSystem(), 201);
         // 怪物表现接管怪物节点的 position/scale/angle/color，必须在 PosSynSystem 之后
         this.registerSystem(new MonsterVisualSystem(), 202);
-        this.registerSystem(new WeaponSyncSystem(), 209);
-        this.registerSystem(new AnimPlaySystem(), 500);
+        this.registerSystem(new BulletDirSystem(), 203);
+        this.registerSystem(new WeaponViewSystem(), 209);
+        this.registerSystem(new AnimRenderSystem(), 500);
+        //#endregion
+
         // 校验和放最后，确保拿到的是本帧全部逻辑写入之后的状态
         this.registerSystem(new ChecksumSystem(), 1000);
     }
