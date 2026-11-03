@@ -23,4 +23,5 @@ export { AnimRenderSystem } from './AnimRenderSystem';
 
 //#region 调试与校验
 export { ChecksumSystem } from './ChecksumSystem';
+export { SnapshotTestSystem } from './SnapshotTestSystem';
 //#endregion

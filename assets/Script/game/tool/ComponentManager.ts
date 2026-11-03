@@ -3,6 +3,7 @@ import { __private } from 'cc';
 import { IComponent } from "../Base/IComponent";
 import { BitSet } from "./BitSet";
 import { ComponentArray } from "./ComponentArray";
+import { captureFields, IComponentState, restoreFields } from "./Snapshot";
 //组件类
 export type ComponentClass<T extends IComponent> = new () => T;
 export class ComponentManager {
@@ -114,5 +115,63 @@ export class ComponentManager {
         this.nextBitIndex = 0;
     }
 
+    //#region 快照 / 回滚
+    /**
+     * @description 导出全部组件状态
+     * entityOrder 必须单独导出：query() 的遍历顺序完全依赖 entitySignature 的
+     * 插入顺序，回滚时如果顺序变了，同一份输入就会算出不同的结果 —— 确定性就没了。
+     */
+    public captureState(): { entityOrder: number[]; components: IComponentState[] } {
+        const entityOrder: number[] = [];
+        this.entitySignature.forEach((_, entityId) => {
+            entityOrder.push(entityId);
+        });
+
+        const components: IComponentState[] = [];
+        this.componentArrays.forEach((array, cls) => {
+            array.data.forEach((comp, entityId) => {
+                components.push({ cls, entityId, fields: captureFields(comp) });
+            });
+        });
+
+        return { entityOrder, components };
+    }
+
+    /**
+     * @description 还原全部组件状态
+     * 还原后组件实例是全新的对象，所以任何持有组件引用的地方
+     * 必须在还原后重新从 world.getComp() 取，不能缓存。
+     */
+    public restoreState(state: { entityOrder: number[]; components: IComponentState[] }): void {
+        for (const array of this.componentArrays.values()) {
+            array.clear();
+        }
+        this.entitySignature.clear();
+
+        // 先按原顺序重建实体签名，保证 query() 的遍历顺序与快照时完全一致
+        for (const entityId of state.entityOrder) {
+            this.entitySignature.set(entityId, new BitSet());
+        }
+
+        for (const item of state.components) {
+            const cls = item.cls;
+            const array = this.componentArrays.get(cls);
+            if (!array) continue;
+
+            const comp = new cls();
+            restoreFields(comp, item.fields);
+            array.addData(item.entityId, comp);
+
+            const bit = this.componentBitIndices.get(cls);
+            if (bit === undefined) continue;
+            let signature = this.entitySignature.get(item.entityId);
+            if (!signature) {
+                signature = new BitSet();
+                this.entitySignature.set(item.entityId, signature);
+            }
+            signature.set(bit);
+        }
+    }
+    //#endregion
 
 }

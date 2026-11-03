@@ -23,4 +23,22 @@ export abstract class ISystem {
     public enableOrDisable(enable: boolean): void {
         this.enable = enable;
     }
+
+    /**
+     * @description 导出系统自身的逻辑状态
+     * 系统里凡是【不属于任何组件】的逻辑状态（比如刷怪计时器）都必须在这里导出，
+     * 否则回滚之后这部分状态会停留在回滚后的时间点，导致重演结果与原来不一致。
+     * 默认返回 null，表示本系统没有需要保存的状态。
+     */
+    captureState(): any {
+        return null;
+    }
+
+    /**
+     * @description 还原系统自身的逻辑状态
+     * 与 captureState 成对使用。
+     */
+    restoreState(data: any): void {
+        // 默认无状态需要还原
+    }
 }

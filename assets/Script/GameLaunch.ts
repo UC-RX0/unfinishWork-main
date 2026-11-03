@@ -90,6 +90,7 @@ export class GameLaunch extends Component {
         };
 
         world.setInputSource(source, welcome.playerCount);
+        world.networkMode = true;
         // 定期上报校验和，服务端负责跨客户端比对
         ChecksumSystem.onChecksum = (frame, hex) => this.net.sendChecksum(frame, hex);
     }

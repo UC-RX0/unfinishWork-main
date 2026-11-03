@@ -7,11 +7,13 @@ import { ISystem } from './Base/ISystem';
 import { ComponentClass } from './tool/ComponentManager';
 import { IComponent } from './Base/IComponent';
 import { AnimComponent, BulletComponent, DamageComponent, EnemyAIComponent, EnemyComponent, HealthComponent, OwnerComponent, PlayerInputComponent, PosComponent, VelocityComponent, ViewComponent, WeaponComponent } from './Component';
-import { AISystem, AnimRenderSystem, AnimTickSystem, BulletDirSystem, BulletSystem, ChecksumSystem, DamageSystem, DeathSystem, EnemySpawnSystem, FaceDirectionSystem, InputSystem, MonsterStateSystem, MonsterVisualSystem, MoveSystem, PosSynSystem, WeaponAimSystem, WeaponViewSystem, WeaponSystem } from './System';
+import { AISystem, AnimRenderSystem, AnimTickSystem, BulletDirSystem, BulletSystem, ChecksumSystem, DamageSystem, DeathSystem, EnemySpawnSystem, FaceDirectionSystem, InputSystem, MonsterStateSystem, MonsterVisualSystem, MoveSystem, PosSynSystem, SnapshotTestSystem, WeaponAimSystem, WeaponViewSystem, WeaponSystem } from './System';
 import { MonsterStateComponent } from './Component/MonsterStateComponent';
 import { FixedStepClock } from './tool/FixedStepClock';
+import { logicRng } from './Math/PRNG';
 import { FrameInput, FrameInputBuffer, IFrameInputSource } from './Input/FrameInput';
 import { LocalInputSource } from './Input/LocalInputSource';
+import { copyValue, IWorldSnapshot } from './tool/Snapshot';
 import { resBridge } from '../core/resource/ResBridge';
 
 
@@ -41,6 +43,8 @@ class World implements IWorld {
     private playerCount: number = 1;
     /**是否因等待输入而卡住（锁步模式下会短暂出现）*/
     public stalled: boolean = false;
+    /**当前是否为联机模式（联机时禁用手工快照自检，避免和回滚控制器打架）*/
+    public networkMode: boolean = false;
     private static _instance: World = null;
     private constructor() { }
     /**获取单实例 */
@@ -138,6 +142,77 @@ class World implements IWorld {
         return this.inputBuffer;
     }
 
+    //#region 快照 / 回滚
+    /**
+     * @description 导出整个逻辑世界的快照
+     * 包含：全部组件数据、实体顺序、系统私有状态、实体池、随机数、帧号。
+     * 不包含任何渲染数据 —— 视图层自己负责对齐。
+     */
+    public captureSnapshot(): IWorldSnapshot {
+        const comp = this.componentManager.captureState();
+        return {
+            frame: this.frame,
+            entityOrder: comp.entityOrder,
+            components: comp.components,
+            systems: this.systemManager.captureState(),
+            nextId: this.entityPool.nextId,
+            freeList: this.entityPool.freeList.slice(),
+            generations: copyValue(this.entityPool.generations),
+            rngState: logicRng.snapshot(),
+        };
+    }
+
+    /**
+     * @description 还原整个逻辑世界
+     * 还原后组件实例是全新对象，任何缓存过组件引用的地方必须重新 getComp()。
+     * 还原不会自动把帧号回退到"下一帧"，
+     * 调用方需要自己决定是继续跑还是重演。
+     */
+    public restoreSnapshot(snapshot: IWorldSnapshot): void {
+        // 还原前记下当前所有实体节点：窗口内新建的实体在还原后就不该存在了，
+        // 它们的节点必须清理掉，否则会在场景里留下"幽灵"
+        const before = this.collectEntityNodes();
+
+        this.componentManager.restoreState({
+            entityOrder: snapshot.entityOrder,
+            components: snapshot.components,
+        });
+        this.entityPool.nextId = snapshot.nextId;
+        this.entityPool.freeList = snapshot.freeList.slice();
+        this.entityPool.generations = copyValue(snapshot.generations);
+        this.systemManager.restoreState(snapshot.systems);
+        logicRng.restore(snapshot.rngState);
+        this.frame = snapshot.frame;
+
+        // 还原后活着的实体节点
+        const after = new Set<Node>();
+        const restoredIds = this.componentManager.query(ViewComponent);
+        for (let i = 0; i < restoredIds.length; i++) {
+            const view = this.componentManager.getComp(restoredIds[i], ViewComponent);
+            if (view && view.node) after.add(view.node);
+        }
+
+        // 窗口内新建、现在已不存在的实体 → 节点销毁
+        for (let i = 0; i < before.length; i++) {
+            const node = before[i];
+            if (node && !after.has(node) && node.isValid) {
+                node.destroy();
+            }
+        }
+    }
+
+    /**收集当前所有实体绑定的节点（渲染层对齐用）*/
+    private collectEntityNodes(): Node[] {
+        const out: Node[] = [];
+        const ids = this.componentManager.query(ViewComponent);
+        for (let i = 0; i < ids.length; i++) {
+            const view = this.componentManager.getComp(ids[i], ViewComponent);
+            if (view && view.node) out.push(view.node);
+        }
+        return out;
+    }
+    //#endregion
+
     /**当前参与同步的玩家数量*/
     getPlayerCount(): number {
         return this.playerCount;
@@ -196,6 +271,8 @@ class World implements IWorld {
 
         // 校验和放最后，确保拿到的是本帧全部逻辑写入之后的状态
         this.registerSystem(new ChecksumSystem(), 1000);
+        // 快照往返自检放最后：它会还原世界，必须在其他系统都跑完之后
+        this.registerSystem(new SnapshotTestSystem(), 1001);
     }
 
     offAllBase() {

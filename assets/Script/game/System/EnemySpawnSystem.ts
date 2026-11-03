@@ -40,6 +40,19 @@ export class EnemySpawnSystem extends ISystem {
         this.spawnOneEnemy();
     }
 
+    /**
+     * 刷怪计时器属于"不属于任何组件"的系统私有状态，
+     * 不导出的话回滚之后它还停在上一个时间点，重演结果就会和原来不一致。
+     */
+    public captureState(): any {
+        return { nextSpawnFrame: this.nextSpawnFrame };
+    }
+
+    public restoreState(data: any): void {
+        if (!data) return;
+        this.nextSpawnFrame = data.nextSpawnFrame;
+    }
+
     private spawnOneEnemy(): void {
         // 1..4 对应 上右下左
         const side = logicRng.rangeInt(1, 5);

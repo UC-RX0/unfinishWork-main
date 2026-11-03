@@ -1,4 +1,5 @@
 import { ISystem } from "../Base/ISystem";
+import { ISystemState } from "./Snapshot";
 export class SystemManager {
     //系统列表
     private systems: ISystem[] = [];
@@ -49,4 +50,26 @@ export class SystemManager {
         this.systems = [];
         this.needsSort = false;
     }
+
+    //#region 快照 / 回滚
+    /**导出所有系统的自定义状态*/
+    public captureState(): ISystemState[] {
+        const out: ISystemState[] = [];
+        for (let i = 0; i < this.systems.length; i++) {
+            const system = this.systems[i];
+            const data = system.captureState();
+            if (data !== null && data !== undefined) {
+                out.push({ system, data });
+            }
+        }
+        return out;
+    }
+
+    /**还原所有系统的自定义状态*/
+    public restoreState(list: ISystemState[]): void {
+        for (let i = 0; i < list.length; i++) {
+            list[i].system.restoreState(list[i].data);
+        }
+    }
+    //#endregion
 }

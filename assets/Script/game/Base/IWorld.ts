@@ -1,6 +1,7 @@
 import { Entity } from "../entity";
 import { ISystem } from "./ISystem";
 import { FrameInput } from "../Input/FrameInput";
+import { IWorldSnapshot } from "../tool/Snapshot";
 
 
 export interface IWorld {
@@ -10,6 +11,8 @@ export interface IWorld {
      * 不允许直接使用渲染 dt —— 这是接帧同步的前提。
      */
     readonly frame: number;
+    /**当前是否为联机模式（联机时禁用与回滚冲突的手工自检）*/
+    readonly networkMode: boolean;
     //#region 输入
     /**
      * 取第 frame 帧指定玩家的输入。
@@ -17,6 +20,12 @@ export interface IWorld {
      * 否则输入就没有帧归属，追帧和回滚都会算错。
      */
     getInput(frame: number, playerIndex: number): FrameInput | null;
+    //#endregion
+    //#region 快照 / 回滚
+    /**导出整个逻辑世界的快照（预测+回滚的地基）*/
+    captureSnapshot(): IWorldSnapshot;
+    /**还原整个逻辑世界（回滚）*/
+    restoreSnapshot(snapshot: IWorldSnapshot): void;
     //#endregion
     //#region 实体管理
     /**创建实体*/

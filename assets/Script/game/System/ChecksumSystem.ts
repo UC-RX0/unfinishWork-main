@@ -1,5 +1,6 @@
 import { Node, director } from "cc";
 import { ISystem } from "../Base/ISystem";
+import { IWorld } from "../Base/IWorld";
 import { HealthComponent, PosComponent, VelocityComponent } from "../Component";
 import { MonsterStateComponent } from "../Component/MonsterStateComponent";
 import { Checksum } from "../tool/Checksum";
@@ -28,7 +29,9 @@ export class ChecksumSystem extends ISystem {
     /**上报回调，由网络层挂接*/
     public static onChecksum: (frame: number, hex: string) => void = null;
 
-    private sum: Checksum = new Checksum();
+    /**复用的哈希器，避免每帧分配*/
+    private static _sum: Checksum = new Checksum();
+
     /**开局帧号基线，用于把服务端的大帧号折算成"开局第几帧"*/
     private baseFrame: number = -1;
     /**探针是否已输出过，保证只写一次*/
@@ -40,38 +43,36 @@ export class ChecksumSystem extends ISystem {
         this.probeDone = false;
     }
 
-    update(dt: number): void {
-        const frame = this.world.frame;
-        // 联机时帧号由服务端分配，可能从几千开始，
-        // 探针要按"开局第几帧"触发，所以这里记一个基线
-        if (this.baseFrame < 0) this.baseFrame = frame - 1;
-        const localFrame = frame - this.baseFrame;
-
-        const sum = this.sum;
+    /**
+     * @description 计算当前世界状态的校验和
+     * 抽成静态方法，回滚验证要用它在"同一帧"上取两个值做对比。
+     */
+    public static compute(world: IWorld): { hex: string; count: number } {
+        const sum = ChecksumSystem._sum;
         sum.reset();
 
         // 组件遍历顺序 = entitySignature 的插入顺序，只要逻辑一致就必然一致
-        const ids = this.world.query(PosComponent);
+        const ids = world.query(PosComponent);
         let count = 0;
         for (let i = 0; i < ids.length; i++) {
             const id = ids[i];
-            const pos = this.world.getComp(id, PosComponent);
+            const pos = world.getComp(id, PosComponent);
 
             sum.pushInt(id);
             sum.pushFloat(pos.pos.x);
             sum.pushFloat(pos.pos.y);
 
-            const hp = this.world.getComp(id, HealthComponent);
+            const hp = world.getComp(id, HealthComponent);
             if (hp) sum.pushFloat(hp.health);
 
-            const vel = this.world.getComp(id, VelocityComponent);
+            const vel = world.getComp(id, VelocityComponent);
             if (vel) {
                 sum.pushFloat(vel.speed);
                 sum.pushFloat(vel.direction.x);
                 sum.pushFloat(vel.direction.y);
             }
 
-            const st = this.world.getComp(id, MonsterStateComponent);
+            const st = world.getComp(id, MonsterStateComponent);
             if (st) {
                 sum.pushInt(st.state);
                 sum.pushInt(st.enterFrame);
@@ -81,18 +82,30 @@ export class ChecksumSystem extends ISystem {
         // 实体总数也要纳入，否则"漏掉一个实体"这种差异可能被哈希掩盖
         sum.pushInt(count);
 
+        return { hex: sum.hex, count };
+    }
+
+    update(dt: number): void {
+        const frame = this.world.frame;
+        // 联机时帧号由服务端分配，可能从几千开始，
+        // 探针要按"开局第几帧"触发，所以这里记一个基线
+        if (this.baseFrame < 0) this.baseFrame = frame - 1;
+        const localFrame = frame - this.baseFrame;
+
+        const result = ChecksumSystem.compute(this.world);
+
         // 用 >= 加一次性标记，而不是精确等于：
         // 万一某帧因等待/追帧被跳过，精确相等会永远错过触发点
         if (!this.probeDone && localFrame >= ChecksumSystem.probeFrame) {
             this.probeDone = true;
-            ChecksumSystem.lastHex = sum.hex;
-            this.createProbe(`DET#local=${localFrame}/frame=${frame}#sum=${sum.hex}#count=${count}`);
+            ChecksumSystem.lastHex = result.hex;
+            this.createProbe(`DET#local=${localFrame}/frame=${frame}#sum=${result.hex}#count=${result.count}`);
         }
 
         // 联机时定期上报，服务端负责跨客户端比对，不一致就广播 desync
         if (ChecksumSystem.onChecksum && ChecksumSystem.reportInterval > 0
             && frame % ChecksumSystem.reportInterval === 0) {
-            ChecksumSystem.onChecksum(frame, sum.hex);
+            ChecksumSystem.onChecksum(frame, result.hex);
         }
     }
 
@@ -113,5 +126,16 @@ export class ChecksumSystem extends ISystem {
         node.parent = guide;
         ChecksumSystem.probeNode = node;
         return node;
+    }
+
+    /**基线帧号也属于系统私有状态，参与快照*/
+    public captureState(): any {
+        return { baseFrame: this.baseFrame, probeDone: this.probeDone };
+    }
+
+    public restoreState(data: any): void {
+        if (!data) return;
+        this.baseFrame = data.baseFrame;
+        this.probeDone = data.probeDone;
     }
 }
